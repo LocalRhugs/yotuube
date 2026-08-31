@@ -10,7 +10,7 @@ import { defineTool, ToolError } from "npm:@lovable.dev/mcp-js@0.26.1";
 import { z } from "npm:zod@^4.4.3";
 
 // src/lib/mcp/supabase.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.96.0";
+import { createClient } from "npm:@supabase/supabase-js@^2.112.4";
 function runtimeEnv(name) {
   const runtime = globalThis;
   return runtime.Deno?.env?.get?.(name) ?? runtime.process?.env?.[name];
@@ -230,7 +230,7 @@ var delete_smart_link_default = defineTool4({
 });
 
 // src/lib/mcp/index.ts
-var projectRef = "efsricqctygfcmcocvnp";
+var projectRef = "gqejpliztfoztcaxfxyp";
 var mcp_default = defineMcp({
   name: "remix-of-remix-of-remix-of-remix-of-remix-of-social-sync-hub",
   title: "Remix of Remix of Remix of Remix of Remix of Social Sync Hub",

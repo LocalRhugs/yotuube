@@ -167,6 +167,45 @@ export type Database = {
         }
         Relationships: []
       }
+      user_smart_links: {
+        Row: {
+          clicks: number
+          created_at: string
+          description: string | null
+          destination_url: string
+          id: string
+          metadata: Json
+          slug: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          clicks?: number
+          created_at?: string
+          description?: string | null
+          destination_url: string
+          id?: string
+          metadata?: Json
+          slug: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          clicks?: number
+          created_at?: string
+          description?: string | null
+          destination_url?: string
+          id?: string
+          metadata?: Json
+          slug?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       youtube_tokens: {
         Row: {
           access_token: string

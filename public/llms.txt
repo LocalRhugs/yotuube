@@ -1,0 +1,19 @@
+# Creator Cloud
+
+> Independent editorial coverage of the creator economy — software reviews, monetization playbooks, and revenue benchmarks for YouTubers, podcasters, and indie founders.
+
+Creator Cloud publishes in-depth guides, software reviews, and revenue tactics for video creators, social-media managers, and indie tech founders.
+
+## Pages
+
+- [Home](/): Featured posts, latest articles, and editorial picks.
+- [About](/about): Who we are and our editorial standards.
+- [Editorial Policy](/editorial-policy): Research, review, correction, and advertising standards.
+- [Contact](/contact): Story tips, corrections, partnerships, and DMCA notices.
+
+## Policies
+
+- [Privacy Policy](/privacy): How we handle data and cookies.
+- [Terms of Service](/terms): Terms governing use of the site.
+- [Disclosure](/disclosure): Affiliate and sponsorship disclosures.
+- [DMCA](/dmca): Copyright takedown process.

@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.1",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://efsricqctygfcmcocvnp.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "remix-of-remix-of-remix-of-remix-of-remix-of-social-sync-hub",
+      "version": "0.1.0",
+      "title": "Remix of Remix of Remix of Remix of Remix of Social Sync Hub"
+    },
+    "tools": [
+      {
+        "name": "list_smart_links",
+        "title": "List smart links",
+        "description": "List the signed-in user's smart links with their slug, destination, short URL and click count.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "search": {
+              "description": "Optional text filter on slug, title or destination.",
+              "type": "string"
+            },
+            "limit": {
+              "default": 25,
+              "description": "Maximum number of links to return.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_smart_link",
+        "title": "Create smart link",
+        "description": "Create a short smart link for the signed-in user, optionally gated behind a YouTube action before the destination unlocks.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "destinationUrl": {
+              "type": "string",
+              "format": "uri",
+              "description": "Where the visitor lands after unlocking."
+            },
+            "title": {
+              "description": "Title shown on the unlock page.",
+              "type": "string",
+              "maxLength": 120
+            },
+            "description": {
+              "description": "Short description shown on the unlock page.",
+              "type": "string",
+              "maxLength": 400
+            },
+            "slug": {
+              "description": "Custom slug; auto-generated when omitted.",
+              "type": "string",
+              "maxLength": 40
+            },
+            "youtubeVideoId": {
+              "description": "YouTube video ID to require watching before the link unlocks.",
+              "type": "string"
+            },
+            "youtubeChannelId": {
+              "description": "YouTube channel ID to require subscribing to before the link unlocks.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "destinationUrl"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_link_analytics",
+        "title": "Get link analytics",
+        "description": "Summarize click performance across the signed-in user's smart links, with a ranked list of top performers.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "top": {
+              "default": 5,
+              "description": "How many top links to include.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 25
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "delete_smart_link",
+        "title": "Delete smart link",
+        "description": "Permanently delete one of the signed-in user's smart links by its slug.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "slug": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Slug of the smart link to delete."
+            }
+          },
+          "required": [
+            "slug"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

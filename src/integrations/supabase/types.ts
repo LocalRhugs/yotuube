@@ -14,7 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      youtube_tokens: {
+        Row: {
+          access_token: string
+          channel_id: string | null
+          channel_title: string | null
+          client_id: string | null
+          created_at: string
+          id: string
+          refresh_token: string
+          token_expiry: string
+        }
+        Insert: {
+          access_token: string
+          channel_id?: string | null
+          channel_title?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          refresh_token: string
+          token_expiry: string
+        }
+        Update: {
+          access_token?: string
+          channel_id?: string | null
+          channel_title?: string | null
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          refresh_token?: string
+          token_expiry?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -166,25 +166,74 @@ export async function generateFacebookSmartLink(
   }
 }
 
-// Translation provider selection (persisted per-browser). Pollinations is free/no-key.
-export type TranslateProvider = "pollinations" | "claude" | "lovable";
+// Translation provider selection (persisted per-browser).
+// `puter:<model>` runs CLIENT-SIDE via Puter.js — free GPT, or premium Claude/Gemini billed to the
+// user's own Puter account — NO API key. Edge providers (pollinations/claude/lovable) run in the
+// translate edge function and need a server secret.
+export type TranslateProvider = "pollinations" | "claude" | "lovable" | `puter:${string}`;
 const TRANSLATE_PROVIDER_KEY = "translate_provider";
 
 export function getTranslateProvider(): TranslateProvider {
   try {
     const v = localStorage.getItem(TRANSLATE_PROVIDER_KEY);
-    if (v === "claude" || v === "lovable" || v === "pollinations") return v;
+    if (v === "claude" || v === "lovable" || v === "pollinations" || (v && v.startsWith("puter:"))) {
+      return v as TranslateProvider;
+    }
   } catch { /* ignore */ }
-  return "pollinations";
+  return "puter:gpt-5.4-mini"; // free, no key, no Lovable
 }
 
 export function setTranslateProvider(provider: TranslateProvider) {
   try { localStorage.setItem(TRANSLATE_PROVIDER_KEY, provider); } catch { /* ignore */ }
 }
 
+// Lazy-load Puter.js the first time a Puter model is used (keeps it off public pages).
+let puterLoad: Promise<void> | null = null;
+function ensurePuter(): Promise<void> {
+  const w = window as unknown as { puter?: unknown };
+  if (w.puter) return Promise.resolve();
+  if (puterLoad) return puterLoad;
+  puterLoad = new Promise<void>((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = "https://js.puter.com/v2/";
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Failed to load Puter.js"));
+    document.head.appendChild(s);
+  });
+  return puterLoad;
+}
+
+async function translateViaPuter(
+  text: string, targetLanguage: string, sourceLanguage: string, model: string
+): Promise<{ success: boolean; translatedText?: string; error?: string }> {
+  try {
+    await ensurePuter();
+    const puter = (window as any).puter;
+    if (!puter?.ai?.chat) return { success: false, error: "Puter.js not available — refresh the page." };
+    const system = `You are a professional translator. Translate from ${sourceLanguage} to ${targetLanguage}. Return ONLY the translated text — no quotes, no notes. Preserve line breaks, emojis, hashtags, @mentions, URLs, and any %s / {} placeholders exactly.`;
+    const resp = await puter.ai.chat(
+      [{ role: "system", content: system }, { role: "user", content: text }],
+      { model, stream: false }
+    );
+    let out = "";
+    if (typeof resp === "string") out = resp;
+    else if (resp?.message?.content) {
+      const c = resp.message.content;
+      out = typeof c === "string" ? c : Array.isArray(c) ? c.map((b: any) => b?.text ?? "").join("") : "";
+    } else if (resp?.text) out = resp.text;
+    else if (resp?.toString) out = resp.toString();
+    out = (out || "").trim();
+    if (!out) return { success: false, error: "Puter returned an empty result" };
+    return { success: true, translatedText: out };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Puter error (a premium model needs you signed into Puter)" };
+  }
+}
+
 /**
- * Translate text via the translate edge function.
- * Provider defaults to the user's saved choice (Pollinations = free, no key).
+ * Translate text. `puter:*` models run client-side (no key); other providers use the edge function.
+ * Provider defaults to the user's saved choice (free Puter GPT).
  */
 export async function translateText(
   text: string,
@@ -192,8 +241,11 @@ export async function translateText(
   sourceLanguage = "en",
   provider?: TranslateProvider
 ): Promise<{ success: boolean; translatedText?: string; error?: string }> {
+  const chosen = provider || getTranslateProvider();
+  if (typeof chosen === "string" && chosen.startsWith("puter:")) {
+    return translateViaPuter(text, targetLanguage, sourceLanguage, chosen.slice("puter:".length) || "gpt-5.4-mini");
+  }
   try {
-    const chosen = provider || getTranslateProvider();
     const { data, error } = await supabase.functions.invoke('translate', {
       body: { text, targetLanguage, sourceLanguage, provider: chosen },
     });

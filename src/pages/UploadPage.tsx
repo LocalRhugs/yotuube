@@ -924,9 +924,18 @@ const UploadPage = () => {
                   onChange={e => { const p = e.target.value as TranslateProvider; setTranslateProviderState(p); setTranslateProvider(p); }}
                   title="Translation engine"
                   className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground">
-                  <option value="pollinations">Pollinations (free)</option>
-                  <option value="claude">Claude</option>
-                  <option value="lovable">Lovable</option>
+                  <optgroup label="Puter.js — no key">
+                    <option value="puter:gpt-5.4-mini">Puter · GPT-5.4 mini (free)</option>
+                    <option value="puter:gpt-5.4">Puter · GPT-5.4 (free)</option>
+                    <option value="puter:claude-sonnet-4-20250514">Puter · Claude Sonnet 4</option>
+                    <option value="puter:claude-3-5-sonnet-20241022">Puter · Claude 3.5 Sonnet</option>
+                    <option value="puter:gemini-2.5-flash">Puter · Gemini 2.5 Flash</option>
+                  </optgroup>
+                  <optgroup label="Server (needs secret)">
+                    <option value="pollinations">Pollinations (token)</option>
+                    <option value="claude">Claude API (key)</option>
+                    <option value="lovable">Lovable</option>
+                  </optgroup>
                 </select>
                 <select value={translateLang} onChange={e => setTranslateLang(e.target.value)}
                   className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground">

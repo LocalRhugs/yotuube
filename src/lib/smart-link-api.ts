@@ -166,88 +166,63 @@ export async function generateFacebookSmartLink(
   }
 }
 
-// Translation provider selection (persisted per-browser).
-// `puter:<model>` runs CLIENT-SIDE via Puter.js — free GPT, or premium Claude/Gemini billed to the
-// user's own Puter account — NO API key. Edge providers (pollinations/claude/lovable) run in the
-// translate edge function and need a server secret.
-export type TranslateProvider = "pollinations" | "claude" | "lovable" | `puter:${string}`;
+// Translation models. Every model runs server-side through the `translate` edge function
+// (OpenAI-compatible /chat/completions). Keys stay in Supabase secrets, never the browser.
+// Stored value format: "<provider>:<realModelId>".
+export interface TranslateModel { value: string; label: string; group: string; }
+export const TRANSLATE_MODELS: TranslateModel[] = [
+  // Pollinations — free-ish (POLLINATIONS_API_KEY)
+  { value: "pollinations:claude-fast",   label: "Pollinations Claude Fast ⭐", group: "Pollinations (free)" },
+  { value: "pollinations:openai-large",  label: "Pollinations OpenAI Large",   group: "Pollinations (free)" },
+  { value: "pollinations:openai",        label: "Pollinations OpenAI",         group: "Pollinations (free)" },
+  { value: "pollinations:mistral-large", label: "Pollinations Mistral Large",  group: "Pollinations (free)" },
+  { value: "pollinations:nova",          label: "Pollinations Nova",           group: "Pollinations (free)" },
+  // Groq — free & fast (GROQ_API_KEY)
+  { value: "groq:llama-3.3-70b-versatile", label: "Groq Llama 3.3", group: "Groq (free)" },
+  // Claude via OpenRouter (OPENROUTER_API_KEY + _2 failover)
+  { value: "openrouter:anthropic/claude-opus-4.6",   label: "Claude Opus 4.6 · $5/$25",   group: "Claude (OpenRouter)" },
+  { value: "openrouter:anthropic/claude-opus-4.5",   label: "Claude Opus 4.5 · $5/$25",   group: "Claude (OpenRouter)" },
+  { value: "openrouter:anthropic/claude-sonnet-4.6", label: "Claude Sonnet 4.6 · $3/$15", group: "Claude (OpenRouter)" },
+  { value: "openrouter:anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5 · $3/$15", group: "Claude (OpenRouter)" },
+  { value: "openrouter:anthropic/claude-haiku-4.5",  label: "Claude Haiku 4.5 · $1/$5",   group: "Claude (OpenRouter)" },
+  { value: "openrouter:anthropic/claude-3-5-haiku",  label: "Claude Haiku 3.5 · $0.8/$4", group: "Claude (OpenRouter)" },
+];
+
+// Default to a cheap, working OpenRouter model (Pollinations needs a funded "pollen" balance;
+// Groq needs GROQ_API_KEY). Switch in the Model dropdown once those are set up.
+const DEFAULT_MODEL = "openrouter:anthropic/claude-haiku-4.5";
 const TRANSLATE_PROVIDER_KEY = "translate_provider";
 
-export function getTranslateProvider(): TranslateProvider {
+/** Returns the saved model value ("<provider>:<realModelId>"). */
+export function getTranslateProvider(): string {
   try {
     const v = localStorage.getItem(TRANSLATE_PROVIDER_KEY);
-    if (v === "claude" || v === "lovable" || v === "pollinations" || (v && v.startsWith("puter:"))) {
-      return v as TranslateProvider;
-    }
+    if (v && TRANSLATE_MODELS.some((m) => m.value === v)) return v;
   } catch { /* ignore */ }
-  return "puter:gpt-5.4-mini"; // free, no key, no Lovable
+  return DEFAULT_MODEL;
 }
 
-export function setTranslateProvider(provider: TranslateProvider) {
-  try { localStorage.setItem(TRANSLATE_PROVIDER_KEY, provider); } catch { /* ignore */ }
-}
-
-// Lazy-load Puter.js the first time a Puter model is used (keeps it off public pages).
-let puterLoad: Promise<void> | null = null;
-function ensurePuter(): Promise<void> {
-  const w = window as unknown as { puter?: unknown };
-  if (w.puter) return Promise.resolve();
-  if (puterLoad) return puterLoad;
-  puterLoad = new Promise<void>((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://js.puter.com/v2/";
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error("Failed to load Puter.js"));
-    document.head.appendChild(s);
-  });
-  return puterLoad;
-}
-
-async function translateViaPuter(
-  text: string, targetLanguage: string, sourceLanguage: string, model: string
-): Promise<{ success: boolean; translatedText?: string; error?: string }> {
-  try {
-    await ensurePuter();
-    const puter = (window as any).puter;
-    if (!puter?.ai?.chat) return { success: false, error: "Puter.js not available — refresh the page." };
-    const system = `You are a professional translator. Translate from ${sourceLanguage} to ${targetLanguage}. Return ONLY the translated text — no quotes, no notes. Preserve line breaks, emojis, hashtags, @mentions, URLs, and any %s / {} placeholders exactly.`;
-    const resp = await puter.ai.chat(
-      [{ role: "system", content: system }, { role: "user", content: text }],
-      { model, stream: false }
-    );
-    let out = "";
-    if (typeof resp === "string") out = resp;
-    else if (resp?.message?.content) {
-      const c = resp.message.content;
-      out = typeof c === "string" ? c : Array.isArray(c) ? c.map((b: any) => b?.text ?? "").join("") : "";
-    } else if (resp?.text) out = resp.text;
-    else if (resp?.toString) out = resp.toString();
-    out = (out || "").trim();
-    if (!out) return { success: false, error: "Puter returned an empty result" };
-    return { success: true, translatedText: out };
-  } catch (err: any) {
-    return { success: false, error: err?.message || "Puter error (a premium model needs you signed into Puter)" };
-  }
+export function setTranslateProvider(value: string) {
+  try { localStorage.setItem(TRANSLATE_PROVIDER_KEY, value); } catch { /* ignore */ }
 }
 
 /**
- * Translate text. `puter:*` models run client-side (no key); other providers use the edge function.
- * Provider defaults to the user's saved choice (free Puter GPT).
+ * Translate text via the `translate` edge function using the chosen model.
+ * `override` (or the saved choice) is "<provider>:<realModelId>".
  */
 export async function translateText(
   text: string,
   targetLanguage: string,
   sourceLanguage = "en",
-  provider?: TranslateProvider
+  override?: string
 ): Promise<{ success: boolean; translatedText?: string; error?: string }> {
-  const chosen = provider || getTranslateProvider();
-  if (typeof chosen === "string" && chosen.startsWith("puter:")) {
-    return translateViaPuter(text, targetLanguage, sourceLanguage, chosen.slice("puter:".length) || "gpt-5.4-mini");
-  }
+  const chosen = override || getTranslateProvider();
+  const idx = chosen.indexOf(":");
+  const provider = idx > 0 ? chosen.slice(0, idx) : "pollinations";
+  const model = idx > 0 ? chosen.slice(idx + 1) : chosen;
   try {
     const { data, error } = await supabase.functions.invoke('translate', {
-      body: { text, targetLanguage, sourceLanguage, provider: chosen },
+      body: { text, targetLanguage, sourceLanguage, provider, model },
     });
     if (error || !data?.success) {
       const context = (error as any)?.context;

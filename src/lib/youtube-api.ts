@@ -5,18 +5,13 @@ const ACTIVE_CLIENT_ID_KEY = "active_google_client_id";
 
 const DEFAULT_CLIENT_IDS = [
   "302161788573-43955upiv3tvqnh3nao5prt9qilvmh1q.apps.googleusercontent.com",
-  "302161788573-tho9l56pvgtq5nefhf1uvpla9tb3u14t.apps.googleusercontent.com",
-  "296836980382-stmgke52oaugg3ichmkk7j7mfomqaf4c.apps.googleusercontent.com",
   "103394190846-nsv2in023rc9jcb9r52kjkptq8ffi1kh.apps.googleusercontent.com",
   "526826300160-bsn65bmdhccl19fj0bm8jlq3781eivi8.apps.googleusercontent.com",
   "520138629571-k5s2r89f7h0l9e74lccv5453p36cfaeg.apps.googleusercontent.com",
-  "473409055154-vv1l7fje765eh3niojfuhirj2603atvk.apps.googleusercontent.com",
   "552525279236-qej7j565n51klfbmrte4dpmgl4n3th7o.apps.googleusercontent.com",
   "71745165232-inc54oufsb4t5dodj5oi3kkln6gbcfec.apps.googleusercontent.com",
   "988682455302-i5o409bbjmosho9lmhh9c2oqr5cpc5ds.apps.googleusercontent.com",
-  "413250698392-aohnivghhrmch593b3d5igpuuu6hr1hs.apps.googleusercontent.com",
   "1091516760006-kmvonq6783gs3v56mrg1pf3rtomgarkl.apps.googleusercontent.com",
-  "780489393816-p38j0fckuk1d056rerdulieqsoa1asjq.apps.googleusercontent.com",
   "18418797872-qe3msk1qn55no37sngeaci139vg34mfs.apps.googleusercontent.com",
   "471084517495-rc56nnf3vfpb4io9rerngk1vce4kggud.apps.googleusercontent.com",
 ];
@@ -37,19 +32,18 @@ export function getStoredClientIds(): string[] {
       return [...DEFAULT_CLIENT_IDS];
     }
     const stored: string[] = JSON.parse(raw);
-    // Merge any missing defaults, dropping known-bad IDs
-    const merged = [...new Set([...stored, ...DEFAULT_CLIENT_IDS])].filter(
-      (id) => !INVALID_CLIENT_IDS.includes(id)
-    );
-    if (merged.length !== stored.length) {
-      localStorage.setItem(CLIENT_IDS_KEY, JSON.stringify(merged));
+    // The backend only has secrets for these configured clients. Remove stale
+    // browser entries so users cannot select a client that cannot authenticate.
+    const configured = [...DEFAULT_CLIENT_IDS];
+    if (JSON.stringify(stored) !== JSON.stringify(configured)) {
+      localStorage.setItem(CLIENT_IDS_KEY, JSON.stringify(configured));
     }
-    // Reset the active ID if it was one of the bad ones
+    // Reset the active ID if it is no longer backed by a configured secret.
     const active = localStorage.getItem(ACTIVE_CLIENT_ID_KEY);
-    if (!active || INVALID_CLIENT_IDS.includes(active)) {
-      localStorage.setItem(ACTIVE_CLIENT_ID_KEY, merged[0] ?? DEFAULT_CLIENT_IDS[0]);
+    if (!active || !configured.includes(active) || INVALID_CLIENT_IDS.includes(active)) {
+      localStorage.setItem(ACTIVE_CLIENT_ID_KEY, configured[0]);
     }
-    return merged;
+    return configured;
   } catch { return [...DEFAULT_CLIENT_IDS]; }
 }
 
@@ -59,7 +53,7 @@ export function saveClientIds(ids: string[]) {
 
 export function getActiveClientId(): string | null {
   const active = localStorage.getItem(ACTIVE_CLIENT_ID_KEY);
-  if (active && INVALID_CLIENT_IDS.includes(active)) {
+  if (!active || INVALID_CLIENT_IDS.includes(active) || !DEFAULT_CLIENT_IDS.includes(active)) {
     localStorage.setItem(ACTIVE_CLIENT_ID_KEY, DEFAULT_CLIENT_IDS[0]);
     return DEFAULT_CLIENT_IDS[0];
   }

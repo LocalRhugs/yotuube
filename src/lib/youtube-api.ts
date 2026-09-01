@@ -4,6 +4,7 @@ const CLIENT_IDS_KEY = "google_client_ids";
 const ACTIVE_CLIENT_ID_KEY = "active_google_client_id";
 
 const DEFAULT_CLIENT_IDS = [
+  "302161788573-43955upiv3tvqnh3nao5prt9qjlvmh1q.apps.googleusercontent.com",
   "302161788573-tho9l56pvgtq5nefhf1uvpla9tb3u14t.apps.googleusercontent.com",
   "296836980382-stmgke52oaugg3ichmkk7j7mfomqaf4c.apps.googleusercontent.com",
   "103394190846-nsv2in023rc9jcb9r52kjkptq8ffi1kh.apps.googleusercontent.com",

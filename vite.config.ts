@@ -10,6 +10,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    // Preview platforms proxy the dev server through a randomized host
+    // (e.g. sb-xxxx.vercel.run), so allow any host instead of hardcoding one.
+    allowedHosts: true,
     hmr: {
       overlay: false,
     },

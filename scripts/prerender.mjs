@@ -32,5 +32,10 @@ for (const route of serverEntry.prerenderRoutes) {
   await writeFile(file, output);
 }
 
+// Empty-root SPA fallback for non-prerendered app routes (/admin, /youtube-callback,
+// /dashboard, …). Serving the home-prerendered index.html for these causes React
+// hydration mismatches; an empty #root makes main.tsx use createRoot (clean render).
+await writeFile(join(distDir, "200.html"), template);
+
 await rm(serverDir, { recursive: true, force: true });
-console.log(`Prerendered ${serverEntry.prerenderRoutes.length} indexable routes.`);
+console.log(`Prerendered ${serverEntry.prerenderRoutes.length} indexable routes + 200.html SPA fallback.`);

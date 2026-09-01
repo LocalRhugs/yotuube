@@ -19,6 +19,7 @@ import {
   type StoredYouTubeChannel,
 } from "@/lib/youtube-direct";
 import { generateYouTubeSmartLink, translateText } from "@/lib/smart-link-api";
+import { TranslationModelSelect } from "@/components/TranslationModelSelect";
 
 type PrivacyStatus = "public" | "private" | "unlisted";
 type UploadMode = "same" | "different";
@@ -297,9 +298,12 @@ const BulkUploadPage = () => {
 
   return (
     <div className="space-y-6 max-w-5xl">
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="space-y-1">
-        <h1 className="text-3xl font-display font-bold text-foreground">Bulk Upload</h1>
-        <p className="text-muted-foreground">Upload multiple videos to multiple YouTube channels at once</p>
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-display font-bold text-foreground">Bulk Upload</h1>
+          <p className="text-muted-foreground">Upload multiple videos to multiple YouTube channels at once</p>
+        </div>
+        <TranslationModelSelect className="mt-1 shrink-0" />
       </motion.div>
 
       {/* Upload Mode */}

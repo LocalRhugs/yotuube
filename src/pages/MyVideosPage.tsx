@@ -16,6 +16,7 @@ import { getYouTubeChannels } from "@/lib/youtube-api";
 import { supabase } from "@/integrations/supabase/client";
 import { BatchActionsBar } from "@/components/BatchActionsBar";
 import { translateText } from "@/lib/smart-link-api";
+import { TranslationModelSelect } from "@/components/TranslationModelSelect";
 
 interface VideoData {
   id: string;
@@ -380,6 +381,7 @@ const MyVideosPage = () => {
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-sm font-medium text-foreground">Description</label>
                 <div className="flex items-center gap-1.5">
+                  <TranslationModelSelect showLabel={false} />
                   <Select value={translateLang} onValueChange={setTranslateLang}>
                     <SelectTrigger className="h-7 text-xs w-32">
                       <SelectValue />

@@ -129,7 +129,14 @@ serve(async (req) => {
         const tokens = await tokenRes.json();
         if (!tokenRes.ok) {
           const e = tokens.error;
-          const msg = e === 'invalid_client' ? 'Invalid OAuth credentials.' : e === 'redirect_uri_mismatch' ? `Redirect URI mismatch. Add "${redirectUri}" to Google Cloud Console.` : e === 'invalid_grant' ? 'Authorization code expired. Try again.' : `Google OAuth error: ${e}`;
+          const desc = tokens.error_description ? ` — ${tokens.error_description}` : '';
+          const idTail = String(GOOGLE_CLIENT_ID).split('-')[0];
+          const secretConfigured = customClientId ? clientPairsMap.has(customClientId) : true;
+          const msg = e === 'invalid_client'
+            ? `invalid_client for client ${idTail}: the secret stored for THIS client is wrong (or the client was deleted in Google Cloud Console). [secret configured for this client: ${secretConfigured ? 'yes — the stored secret does not match this client id' : 'NO — add "<clientId>:<secret>" to GOOGLE_CLIENT_PAIRS'}]`
+            : e === 'redirect_uri_mismatch' ? `Redirect URI mismatch. Add "${redirectUri}" to Google Cloud Console for client ${idTail}.`
+            : e === 'invalid_grant' ? `invalid_grant: the code expired or was issued to a different client than ${idTail}. Try again${desc}.`
+            : `Google OAuth error: ${e}${desc}`;
           return err(msg);
         }
 

@@ -19,6 +19,11 @@ const DEFAULT_CLIENT_IDS = [
   "780489393816-p38j0fckuk1d056rerdulieqsoa1asjq.apps.googleusercontent.com",
 ];
 
+// Client IDs that were saved with a typo and must be purged from browser storage.
+const INVALID_CLIENT_IDS = [
+  "302161788573-43955upiv3tvqnh3nao5prt9qjlvmh1q.apps.googleusercontent.com",
+];
+
 export function getStoredClientIds(): string[] {
   try {
     const raw = localStorage.getItem(CLIENT_IDS_KEY);
@@ -30,10 +35,17 @@ export function getStoredClientIds(): string[] {
       return [...DEFAULT_CLIENT_IDS];
     }
     const stored: string[] = JSON.parse(raw);
-    // Merge any missing defaults
-    const merged = [...new Set([...stored, ...DEFAULT_CLIENT_IDS])];
+    // Merge any missing defaults, dropping known-bad IDs
+    const merged = [...new Set([...stored, ...DEFAULT_CLIENT_IDS])].filter(
+      (id) => !INVALID_CLIENT_IDS.includes(id)
+    );
     if (merged.length !== stored.length) {
       localStorage.setItem(CLIENT_IDS_KEY, JSON.stringify(merged));
+    }
+    // Reset the active ID if it was one of the bad ones
+    const active = localStorage.getItem(ACTIVE_CLIENT_ID_KEY);
+    if (!active || INVALID_CLIENT_IDS.includes(active)) {
+      localStorage.setItem(ACTIVE_CLIENT_ID_KEY, merged[0] ?? DEFAULT_CLIENT_IDS[0]);
     }
     return merged;
   } catch { return [...DEFAULT_CLIENT_IDS]; }
@@ -44,7 +56,12 @@ export function saveClientIds(ids: string[]) {
 }
 
 export function getActiveClientId(): string | null {
-  return localStorage.getItem(ACTIVE_CLIENT_ID_KEY);
+  const active = localStorage.getItem(ACTIVE_CLIENT_ID_KEY);
+  if (active && INVALID_CLIENT_IDS.includes(active)) {
+    localStorage.setItem(ACTIVE_CLIENT_ID_KEY, DEFAULT_CLIENT_IDS[0]);
+    return DEFAULT_CLIENT_IDS[0];
+  }
+  return active;
 }
 
 export function setActiveClientId(id: string | null) {

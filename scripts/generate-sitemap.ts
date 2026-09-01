@@ -5,7 +5,7 @@ import { writeFileSync } from "fs";
 import { resolve } from "path";
 import { posts } from "../src/content/posts";
 
-const BASE_URL = "https://cloud-publish-pro.lovable.app";
+const BASE_URL = "https://yotuube-sand.vercel.app";
 
 interface SitemapEntry {
   path: string;

@@ -8,7 +8,7 @@ export default function TermsPage() {
       <Helmet>
         <title>Terms of Service — Creator Cloud</title>
         <meta name="description" content="Terms of service, acceptable use, and DMCA procedures for Creator Cloud." />
-        <link rel="canonical" href="https://cloud-publish-pro.lovable.app/terms" />
+        <link rel="canonical" href="https://yotuube-sand.vercel.app/terms" />
       </Helmet>
       <div className="max-w-3xl mx-auto space-y-8">
         <div className="flex items-center justify-between">

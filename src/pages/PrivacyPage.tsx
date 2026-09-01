@@ -6,7 +6,7 @@ export default function PrivacyPage() {
       <Helmet>
         <title>Privacy Policy — Creator Cloud</title>
         <meta name="description" content="How Creator Cloud collects, uses, and protects your data. Covers cookies, analytics, and Google AdSense." />
-        <link rel="canonical" href="https://cloud-publish-pro.lovable.app/privacy" />
+        <link rel="canonical" href="https://yotuube-sand.vercel.app/privacy" />
       </Helmet>
       <article className="max-w-3xl mx-auto px-6 py-16 text-gray-300 leading-relaxed">
         <h1 className="text-4xl font-bold mb-3 text-white">Privacy Policy</h1>
@@ -15,7 +15,7 @@ export default function PrivacyPage() {
         <h2 className="text-2xl font-bold mt-10 mb-3 text-white">1. What this policy covers</h2>
         <p>
           This Privacy Policy describes how Creator Cloud ("we", "us") collects, uses, and shares information
-          when you visit cloud-publish-pro.lovable.app and any subdomain.
+          when you visit yotuube-sand.vercel.app and any subdomain.
         </p>
 
         <h2 className="text-2xl font-bold mt-10 mb-3 text-white">2. Information we collect</h2>

@@ -128,7 +128,7 @@ export default function BlogPostPage() {
     .filter((p) => p.slug !== post.slug && (p.category === post.category || p.tags.some((t) => post.tags.includes(t))))
     .slice(0, 3);
 
-  const url = `https://cloud-publish-pro.lovable.app/blog/${post.slug}`;
+  const url = `https://yotuube-sand.vercel.app/blog/${post.slug}`;
   const wordCount = post.body.split(/\s+/).filter(Boolean).length;
   const authorProfile = getAuthorProfile(post.author);
   const reviewedAt = "2026-06-30";
@@ -170,22 +170,22 @@ export default function BlogPostPage() {
       name: post.author,
       jobTitle: authorProfile.role,
       description: authorProfile.bio,
-      url: `https://cloud-publish-pro.lovable.app/about#${authorProfile.id}`,
+      url: `https://yotuube-sand.vercel.app/about#${authorProfile.id}`,
     },
     reviewedBy: {
       "@type": "Organization",
       name: "Creator Cloud editorial desk",
-      url: "https://cloud-publish-pro.lovable.app/editorial-policy",
+      url: "https://yotuube-sand.vercel.app/editorial-policy",
     },
     datePublished: post.publishedAt,
     dateModified: reviewedAt,
     publisher: {
       "@type": "Organization",
-      "@id": "https://cloud-publish-pro.lovable.app/#organization",
+      "@id": "https://yotuube-sand.vercel.app/#organization",
       name: "Creator Cloud",
       logo: {
         "@type": "ImageObject",
-        url: "https://cloud-publish-pro.lovable.app/placeholder.svg",
+        url: "https://yotuube-sand.vercel.app/placeholder.svg",
       },
     },
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
@@ -202,12 +202,12 @@ export default function BlogPostPage() {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: "https://cloud-publish-pro.lovable.app/" },
+      { "@type": "ListItem", position: 1, name: "Home", item: "https://yotuube-sand.vercel.app/" },
       {
         "@type": "ListItem",
         position: 2,
         name: post.category,
-        item: `https://cloud-publish-pro.lovable.app/category/${post.category.toLowerCase()}`,
+        item: `https://yotuube-sand.vercel.app/category/${post.category.toLowerCase()}`,
       },
       { "@type": "ListItem", position: 3, name: post.title, item: url },
     ],

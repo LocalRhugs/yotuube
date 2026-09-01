@@ -6,7 +6,7 @@ export default function DisclosurePage() {
       <Helmet>
         <title>Advertising & Affiliate Disclosure — Creator Cloud</title>
         <meta name="description" content="How Creator Cloud is funded, our advertising standards, and our affiliate-link disclosure." />
-        <link rel="canonical" href="https://cloud-publish-pro.lovable.app/disclosure" />
+        <link rel="canonical" href="https://yotuube-sand.vercel.app/disclosure" />
       </Helmet>
       <article className="max-w-3xl mx-auto px-6 py-16 text-gray-300 leading-relaxed">
         <h1 className="text-4xl font-bold mb-6 text-white">Advertising & Affiliate Disclosure</h1>

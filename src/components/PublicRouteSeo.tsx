@@ -1,7 +1,7 @@
 import { Helmet } from "react-helmet-async";
 import { useLocation } from "react-router-dom";
 
-const SITE_URL = "https://cloud-publish-pro.lovable.app";
+const SITE_URL = "https://yotuube-sand.vercel.app";
 const SITE_NAME = "Creator Cloud";
 
 const CATEGORY_NAMES: Record<string, string> = {

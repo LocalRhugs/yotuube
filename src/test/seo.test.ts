@@ -7,7 +7,7 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 import { posts } from "@/content/posts";
 
-const BASE = "https://cloud-publish-pro.lovable.app";
+const BASE = "https://yotuube-sand.vercel.app";
 
 const sitemap = readFileSync(resolve("public/sitemap.xml"), "utf8");
 const robots = readFileSync(resolve("public/robots.txt"), "utf8");

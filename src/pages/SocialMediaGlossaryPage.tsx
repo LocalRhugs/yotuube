@@ -64,7 +64,7 @@ export default function SocialMediaGlossaryPage() {
           name="description"
           content="Plain-English definitions of smart links, RPM, CTR, social unlocks, bridge pages, and creator monetization terms."
         />
-        <link rel="canonical" href="https://cloud-publish-pro.lovable.app/social-media-glossary" />
+        <link rel="canonical" href="https://yotuube-sand.vercel.app/social-media-glossary" />
         <meta property="og:title" content="Social Media Glossary for Creators" />
         <meta property="og:description" content="Creator monetization and social-growth terms explained in plain English." />
       </Helmet>

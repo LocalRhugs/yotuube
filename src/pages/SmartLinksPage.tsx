@@ -34,7 +34,7 @@ export default function SmartLinksPage() {
           name="description"
           content="Create creator smart links that unlock files, scripts, and resources after real social actions, backed by editorial guides and transparent policies."
         />
-        <link rel="canonical" href="https://cloud-publish-pro.lovable.app/smart-links" />
+        <link rel="canonical" href="https://yotuube-sand.vercel.app/smart-links" />
         <meta property="og:title" content="Smart Links for Creators — Creator Cloud" />
         <meta property="og:description" content="A creator-focused unlock link hub with action steps, progress tracking, and useful creator education." />
       </Helmet>

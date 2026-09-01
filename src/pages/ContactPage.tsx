@@ -13,7 +13,7 @@ export default function ContactPage() {
       <Helmet>
         <title>Contact — Creator Cloud</title>
         <meta name="description" content="Story tips, corrections, partnership inquiries, and DMCA notices for Creator Cloud." />
-        <link rel="canonical" href="https://cloud-publish-pro.lovable.app/contact" />
+        <link rel="canonical" href="https://yotuube-sand.vercel.app/contact" />
       </Helmet>
       <article className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-4xl font-bold mb-4 text-white">Contact</h1>

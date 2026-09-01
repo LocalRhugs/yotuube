@@ -8,7 +8,7 @@ export default function PricingPage() {
       <Helmet>
         <title>Pricing — Creator Cloud Smart Links</title>
         <meta name="description" content="Creator Cloud smart-link tools are currently free while the platform grows, with transparent creator-focused features." />
-        <link rel="canonical" href="https://cloud-publish-pro.lovable.app/pricing" />
+        <link rel="canonical" href="https://yotuube-sand.vercel.app/pricing" />
         <meta property="og:title" content="Pricing — Creator Cloud Smart Links" />
         <meta property="og:description" content="Transparent pricing for Creator Cloud smart-link tools." />
       </Helmet>

@@ -26,7 +26,7 @@ Disallow: /s/
 Disallow: /article/
 Disallow: /youtube-callback
 
-Sitemap: https://cloud-publish-pro.lovable.app/sitemap.xml
+Sitemap: https://yotuube-sand.vercel.app/sitemap.xml
 
 # User dashboard & auth — not for indexing
 Disallow: /signin

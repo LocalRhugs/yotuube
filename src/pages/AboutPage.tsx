@@ -7,7 +7,7 @@ export default function AboutPage() {
       <Helmet>
         <title>About — Creator Cloud</title>
         <meta name="description" content="Creator Cloud is independent editorial coverage of the creator economy. Meet the team and editorial standards." />
-        <link rel="canonical" href="https://cloud-publish-pro.lovable.app/about" />
+        <link rel="canonical" href="https://yotuube-sand.vercel.app/about" />
       </Helmet>
       <article className="max-w-3xl mx-auto px-6 py-16 prose-content text-gray-300 leading-relaxed">
         <h1 className="text-4xl font-bold mb-6 text-white">About Creator Cloud</h1>

@@ -6,7 +6,7 @@ export default function DMCAPage() {
       <Helmet>
         <title>DMCA / Copyright Policy — Creator Cloud</title>
         <meta name="description" content="Copyright takedown notices and DMCA procedures for Creator Cloud." />
-        <link rel="canonical" href="https://cloud-publish-pro.lovable.app/dmca" />
+        <link rel="canonical" href="https://yotuube-sand.vercel.app/dmca" />
       </Helmet>
       <article className="max-w-3xl mx-auto px-6 py-16 text-gray-300 leading-relaxed">
         <h1 className="text-4xl font-bold mb-6 text-white">DMCA & Copyright Policy</h1>

@@ -71,7 +71,7 @@ export default function HomePage() {
             name="description"
             content="Create smart links that unlock files, scripts, videos, and creator resources after real audience actions like subscribing, liking, or following."
           />
-          <link rel="canonical" href="https://cloud-publish-pro.lovable.app/" />
+          <link rel="canonical" href="https://yotuube-sand.vercel.app/" />
           <meta property="og:title" content="Creator Cloud — Smart Links for Creators" />
           <meta property="og:description" content="A creator smart-link platform with unlock pages, progress tracking, and creator monetization guides." />
           <script type="application/ld+json">{JSON.stringify({
@@ -80,10 +80,10 @@ export default function HomePage() {
             name: "Creator Cloud",
             applicationCategory: "CreatorApplication",
             operatingSystem: "Web",
-            url: "https://cloud-publish-pro.lovable.app/",
+            url: "https://yotuube-sand.vercel.app/",
             description: "Smart-link unlock pages for creators who share files, scripts, videos, and resources after audience actions.",
             offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-            publisher: { "@id": "https://cloud-publish-pro.lovable.app/#organization" },
+            publisher: { "@id": "https://yotuube-sand.vercel.app/#organization" },
           })}</script>
         </Helmet>
 
@@ -238,7 +238,7 @@ export default function HomePage() {
       <Helmet>
         <title>{pageTitle}</title>
         <meta name="description" content={pageDesc} />
-        <link rel="canonical" href={`https://cloud-publish-pro.lovable.app${category ? `/category/${category}` : "/"}`} />
+        <link rel="canonical" href={`https://yotuube-sand.vercel.app${category ? `/category/${category}` : "/"}`} />
         <meta property="og:title" content={pageTitle} />
         <meta property="og:description" content={pageDesc} />
         <script type="application/ld+json">{JSON.stringify({
@@ -246,17 +246,17 @@ export default function HomePage() {
           "@type": "CollectionPage",
           name: pageTitle,
           description: pageDesc,
-          url: `https://cloud-publish-pro.lovable.app${category ? `/category/${category}` : "/"}`,
+          url: `https://yotuube-sand.vercel.app${category ? `/category/${category}` : "/"}`,
           inLanguage: "en",
-          isPartOf: { "@id": "https://cloud-publish-pro.lovable.app/#website" },
-          publisher: { "@id": "https://cloud-publish-pro.lovable.app/#organization" },
+          isPartOf: { "@id": "https://yotuube-sand.vercel.app/#website" },
+          publisher: { "@id": "https://yotuube-sand.vercel.app/#organization" },
           mainEntity: {
             "@type": "ItemList",
             numberOfItems: visible.length,
             itemListElement: visible.slice(0, 20).map((p, i) => ({
               "@type": "ListItem",
               position: i + 1,
-              url: `https://cloud-publish-pro.lovable.app/blog/${p.slug}`,
+              url: `https://yotuube-sand.vercel.app/blog/${p.slug}`,
               name: p.title,
             })),
           },

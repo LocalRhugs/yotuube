@@ -31,7 +31,7 @@ export default function HowItWorksPage() {
       <Helmet>
         <title>How Creator Cloud Smart Links Work</title>
         <meta name="description" content="Learn how Creator Cloud smart links let creators share resources after visitors complete audience-growth actions." />
-        <link rel="canonical" href="https://cloud-publish-pro.lovable.app/how-it-works" />
+        <link rel="canonical" href="https://yotuube-sand.vercel.app/how-it-works" />
         <meta property="og:title" content="How Creator Cloud Smart Links Work" />
         <meta property="og:description" content="A clear breakdown of the Creator Cloud smart-link unlock flow." />
       </Helmet>

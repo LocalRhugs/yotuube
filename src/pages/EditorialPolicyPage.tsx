@@ -9,7 +9,7 @@ export default function EditorialPolicyPage() {
           name="description"
           content="How Creator Cloud researches, tests, reviews, updates, and corrects creator economy articles."
         />
-        <link rel="canonical" href="https://cloud-publish-pro.lovable.app/editorial-policy" />
+        <link rel="canonical" href="https://yotuube-sand.vercel.app/editorial-policy" />
       </Helmet>
       <article className="max-w-3xl mx-auto px-6 py-16 text-gray-300 leading-relaxed">
         <h1 className="text-4xl font-bold mb-6 text-white">Editorial Policy</h1>

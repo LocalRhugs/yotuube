@@ -66,7 +66,7 @@ export function decodeBlogUnlock(token: string): BlogUnlockPayload | null {
 /**
  * Build a public blog smart-link URL.
  * Example:
- *   buildBlogSmartLink("https://cloud-publish-pro.lovable.app",
+ *   buildBlogSmartLink("https://yotuube-sand.vercel.app",
  *                      "best-free-video-editors-for-youtubers-2026",
  *                      { ytVideoId: "dQw4w9WgXcQ",
  *                        targetUrl: "https://example.com/download",

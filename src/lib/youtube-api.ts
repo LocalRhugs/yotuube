@@ -17,6 +17,8 @@ const DEFAULT_CLIENT_IDS = [
   "413250698392-aohnivghhrmch593b3d5igpuuu6hr1hs.apps.googleusercontent.com",
   "1091516760006-kmvonq6783gs3v56mrg1pf3rtomgarkl.apps.googleusercontent.com",
   "780489393816-p38j0fckuk1d056rerdulieqsoa1asjq.apps.googleusercontent.com",
+  "18418797872-qe3msk1qn55no37sngeaci139vg34mfs.apps.googleusercontent.com",
+  "471084517495-rc56nnf3vfpb4io9rerngk1vce4kggud.apps.googleusercontent.com",
 ];
 
 // Client IDs that were saved with a typo and must be purged from browser storage.

@@ -56,7 +56,12 @@ export function saveClientIds(ids: string[]) {
 }
 
 export function getActiveClientId(): string | null {
-  return localStorage.getItem(ACTIVE_CLIENT_ID_KEY);
+  const active = localStorage.getItem(ACTIVE_CLIENT_ID_KEY);
+  if (active && INVALID_CLIENT_IDS.includes(active)) {
+    localStorage.setItem(ACTIVE_CLIENT_ID_KEY, DEFAULT_CLIENT_IDS[0]);
+    return DEFAULT_CLIENT_IDS[0];
+  }
+  return active;
 }
 
 export function setActiveClientId(id: string | null) {

@@ -33,7 +33,7 @@ const YouTubeCallbackPage = () => {
       if (res.success) {
         setStatus('success');
         setMessage(`Connected to: ${res.data?.channelTitle || 'YouTube Channel'}`);
-        setTimeout(() => navigate('/settings'), 2000);
+        setTimeout(() => navigate('/admin/settings'), 2000);
       } else {
         setStatus('error');
         // Provide actionable guidance based on the error
@@ -80,7 +80,7 @@ const YouTubeCallbackPage = () => {
                 <p className="text-xs text-muted-foreground break-all">{helpText}</p>
               </div>
             )}
-            <Button variant="outline" onClick={() => navigate('/settings')}>
+            <Button variant="outline" onClick={() => navigate('/admin/settings')}>
               Back to Settings
             </Button>
           </>

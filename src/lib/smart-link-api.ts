@@ -166,18 +166,36 @@ export async function generateFacebookSmartLink(
   }
 }
 
+// Translation provider selection (persisted per-browser). Pollinations is free/no-key.
+export type TranslateProvider = "pollinations" | "claude" | "lovable";
+const TRANSLATE_PROVIDER_KEY = "translate_provider";
+
+export function getTranslateProvider(): TranslateProvider {
+  try {
+    const v = localStorage.getItem(TRANSLATE_PROVIDER_KEY);
+    if (v === "claude" || v === "lovable" || v === "pollinations") return v;
+  } catch { /* ignore */ }
+  return "pollinations";
+}
+
+export function setTranslateProvider(provider: TranslateProvider) {
+  try { localStorage.setItem(TRANSLATE_PROVIDER_KEY, provider); } catch { /* ignore */ }
+}
+
 /**
- * Translate text using MyMemory API via the translate edge function.
- * Free, no API key required.
+ * Translate text via the translate edge function.
+ * Provider defaults to the user's saved choice (Pollinations = free, no key).
  */
 export async function translateText(
   text: string,
   targetLanguage: string,
-  sourceLanguage = "en"
+  sourceLanguage = "en",
+  provider?: TranslateProvider
 ): Promise<{ success: boolean; translatedText?: string; error?: string }> {
   try {
+    const chosen = provider || getTranslateProvider();
     const { data, error } = await supabase.functions.invoke('translate', {
-      body: { text, targetLanguage, sourceLanguage },
+      body: { text, targetLanguage, sourceLanguage, provider: chosen },
     });
     if (error || !data?.success) {
       const context = (error as any)?.context;

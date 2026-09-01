@@ -20,7 +20,7 @@ import VideoEditor from "@/components/VideoEditor";
 import VideoCommentManager from "@/components/VideoCommentManager";
 import TagSelector from "@/components/TagSelector";
 import { getStoredChannels, uploadVideoToYouTube, uploadThumbnail, getUploadDefaults, getFreshAccessToken } from "@/lib/youtube-direct";
-import { generateYouTubeSmartLink, generateFacebookSmartLink, translateText } from "@/lib/smart-link-api";
+import { generateYouTubeSmartLink, generateFacebookSmartLink, translateText, getTranslateProvider, setTranslateProvider, type TranslateProvider } from "@/lib/smart-link-api";
 import { suggestHashtags, improveDescription } from "@/lib/ai-suggest";
 
 interface UploadDestination {
@@ -108,6 +108,7 @@ const UploadPage = () => {
 
   const [translating, setTranslating] = useState(false);
   const [translateLang, setTranslateLang] = useState('es');
+  const [translateProvider, setTranslateProviderState] = useState<TranslateProvider>(getTranslateProvider());
 
   // Per-channel language assignment. Key = destination id, value = lang code ('' or absent = original/English).
   // One upload per channel, in its assigned language.
@@ -919,6 +920,14 @@ const UploadPage = () => {
                   {aiLoading === 'description' ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                   AI Improve
                 </Button>
+                <select value={translateProvider}
+                  onChange={e => { const p = e.target.value as TranslateProvider; setTranslateProviderState(p); setTranslateProvider(p); }}
+                  title="Translation engine"
+                  className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground">
+                  <option value="pollinations">Pollinations (free)</option>
+                  <option value="claude">Claude</option>
+                  <option value="lovable">Lovable</option>
+                </select>
                 <select value={translateLang} onChange={e => setTranslateLang(e.target.value)}
                   className="text-xs border border-border rounded px-1.5 py-0.5 bg-background text-foreground">
                   <option value="es">Spanish</option>

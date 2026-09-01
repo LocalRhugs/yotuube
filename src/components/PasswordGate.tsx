@@ -2,13 +2,13 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Lock, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import type { Session } from "@supabase/supabase-js";
 
 const ALLOWED_EMAILS = [
   "kimppy444@gmail.com",
   "jessekanhai34@gmail.com",
   "killerkanhai861@gmail.com",
+  "askinggod009@gmail.com",
 ];
 
 const PasswordGate = ({ children }: { children: React.ReactNode }) => {
@@ -29,11 +29,14 @@ const PasswordGate = ({ children }: { children: React.ReactNode }) => {
 
   const handleSignIn = async () => {
     setError(null);
-    const res = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-      extraParams: { prompt: "select_account" },
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/admin`,
+        queryParams: { prompt: "select_account" },
+      },
     });
-    if (res.error) setError(res.error.message || "Sign-in failed");
+    if (error) setError(error.message || "Sign-in failed");
   };
 
   const handleSignOut = async () => {

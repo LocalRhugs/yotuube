@@ -1120,13 +1120,16 @@ const UploadPage = () => {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-display font-semibold text-foreground text-lg">Upload Destinations</h2>
-            <p className="text-sm text-muted-foreground">Select where to publish this video</p>
+            <p className="text-sm text-muted-foreground">Select where to publish this video · per-channel language uses the chosen model</p>
           </div>
-          {destinations.length > 1 && (
-            <Button variant="ghost" size="sm" onClick={selectAll}>
-              {selectedAccounts.length === destinations.length ? 'Deselect All' : 'Select All'}
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            <TranslationModelSelect />
+            {destinations.length > 1 && (
+              <Button variant="ghost" size="sm" onClick={selectAll}>
+                {selectedAccounts.length === destinations.length ? 'Deselect All' : 'Select All'}
+              </Button>
+            )}
+          </div>
         </div>
 
         {loadingDestinations ? (

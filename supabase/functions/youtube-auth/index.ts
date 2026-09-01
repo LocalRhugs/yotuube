@@ -81,12 +81,20 @@ serve(async (req) => {
     const { action, code, redirectUri, channelTokenId, videoId, title, description, privacyStatus,
       igAccountId, pageAccessToken, commentId, message, query: searchQuery, clientId: customClientId } = body;
 
-    // Resolve client ID and its matching secret
+    // OAuth authorization codes are bound to the client that created them.
+    // Never exchange a custom client's code with the default client's secret.
     const GOOGLE_CLIENT_ID = customClientId || DEFAULT_CLIENT_ID;
-    const GOOGLE_CLIENT_SECRET = clientPairsMap.get(GOOGLE_CLIENT_ID) || DEFAULT_CLIENT_SECRET;
+    const GOOGLE_CLIENT_SECRET = customClientId
+      ? clientPairsMap.get(customClientId)
+      : DEFAULT_CLIENT_SECRET;
 
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-      return err('Google OAuth credentials not configured');
+      return err(
+        customClientId
+          ? `No matching client secret is configured for Google client ${customClientId}. Add this exact ID and its secret to GOOGLE_CLIENT_PAIRS.`
+          : 'Google OAuth credentials not configured',
+        400,
+      );
     }
 
     switch (action) {
@@ -94,7 +102,7 @@ serve(async (req) => {
       case 'validate': {
         const issues: string[] = [];
         if (!GOOGLE_CLIENT_ID?.endsWith('.apps.googleusercontent.com')) issues.push('GOOGLE_CLIENT_ID format appears invalid');
-        if (!GOOGLE_CLIENT_SECRET) issues.push('GOOGLE_CLIENT_SECRET is not set');
+        if (!GOOGLE_CLIENT_SECRET) issues.push(`No matching client secret is configured for ${GOOGLE_CLIENT_ID}`);
         if (redirectUri && !redirectUri.endsWith('/youtube-callback')) issues.push('Redirect URI path should end with "/youtube-callback"');
         return ok({ success: issues.length === 0, data: { valid: issues.length === 0, issues, clientIdConfigured: !!GOOGLE_CLIENT_ID, redirectUri } });
       }

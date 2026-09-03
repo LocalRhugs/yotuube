@@ -121,6 +121,29 @@ export default function PublicLayout() {
           </div>
         </div>
         <div className="border-t border-white/5">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
+            <a
+              href="https://linkvertise.com/?publisherClosed=true&affiliate_id=405401"
+              target="_blank"
+              rel="sponsored noopener noreferrer"
+              className="flex flex-col sm:flex-row items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-5 py-4 transition-colors hover:border-white/25"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">💰</span>
+                <div>
+                  <div className="font-semibold text-gray-200">Monetize your own links</div>
+                  <div className="text-xs text-gray-500">
+                    Turn every link you share into income with Linkvertise — free to join.
+                  </div>
+                </div>
+              </div>
+              <span className="shrink-0 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-black">
+                Start earning →
+              </span>
+            </a>
+          </div>
+        </div>
+        <div className="border-t border-white/5">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 flex flex-col sm:flex-row justify-between gap-2 text-xs text-gray-600">
             <span>© {new Date().getFullYear()} Creator Cloud. All rights reserved.</span>
             <span>

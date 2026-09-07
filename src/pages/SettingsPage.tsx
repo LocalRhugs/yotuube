@@ -540,6 +540,7 @@ const SettingsPage = () => {
                           { key: "subscribe" as const, label: "Require Subscribe" },
                           { key: "like" as const, label: "Require Like" },
                           { key: "comment" as const, label: "Require Comment" },
+                          { key: "discord" as const, label: "Require Join Discord" },
                         ].map(action => (
                           <label key={action.key} className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50 transition-colors">
                             <input type="checkbox"
@@ -557,6 +558,17 @@ const SettingsPage = () => {
                         ))}
                       </div>
                     </div>
+                    {defaults.socialUnlockActions?.discord && (
+                      <div>
+                        <label className="text-sm font-medium text-foreground mb-1.5 block">Discord Invite URL</label>
+                        <Input
+                          value={defaults.socialUnlockDiscordUrl || ""}
+                          onChange={e => setDefaults(d => ({ ...d, socialUnlockDiscordUrl: e.target.value }))}
+                          placeholder="https://discord.gg/yourserver"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">The invite viewers must join to unlock (used by the Join Discord step).</p>
+                      </div>
+                    )}
                     <div className="p-3 bg-muted rounded-lg">
                       <p className="text-xs text-muted-foreground">
                         <strong>How it works:</strong> A smart link is auto-added to video descriptions. Viewers must complete required actions to unlock your target URL.

@@ -22,6 +22,25 @@ export function setSelfHostSmartLinks(enabled: boolean) {
   try { localStorage.setItem(SELF_HOST_FLAG, enabled ? "true" : "false"); } catch {}
 }
 
+// The link FORMAT posted in comments/descriptions (user-chosen in Settings):
+//   "article"  = the full unlock-page URL as-is  (yourdomain/article/…, AdSense page, no shortener)
+//   "external" = shortened via spoo.me / da.gd    (hides your domain)
+//   "self"     = shortened on your own domain      (yourdomain/s/…, click analytics)
+export type SmartLinkStyle = "article" | "external" | "self";
+const STYLE_KEY = "smart_link_style";
+
+export function getSmartLinkStyle(): SmartLinkStyle {
+  try {
+    const v = localStorage.getItem(STYLE_KEY);
+    if (v === "article" || v === "external" || v === "self") return v;
+  } catch {}
+  return "article"; // default: the full unlock-page link
+}
+
+export function setSmartLinkStyle(style: SmartLinkStyle) {
+  try { localStorage.setItem(STYLE_KEY, style); } catch {}
+}
+
 function smartLinkBase(): string {
   if (isSelfHostSmartLinks() && typeof window !== "undefined") {
     return window.location.origin;
@@ -77,10 +96,10 @@ function base64url(payload: unknown[]): string {
 /**
  * Shorten a URL using the persistent url-shortener edge function
  */
-async function shortenUrl(longUrl: string): Promise<string> {
+async function shortenUrl(longUrl: string, selfHost = false): Promise<string> {
   try {
-    // When self-hosting, pass origin to use our DB-backed /s/:code shortener (gives analytics).
-    const origin = typeof window !== "undefined" && isSelfHostSmartLinks() ? window.location.origin : undefined;
+    // selfHost -> our DB-backed /s/:code shortener (gives analytics); else external (spoo.me/da.gd).
+    const origin = selfHost && typeof window !== "undefined" ? window.location.origin : undefined;
     const { data, error } = await supabase.functions.invoke('url-shortener', {
       body: origin ? { url: longUrl, origin, mode: 'self' } : { url: longUrl },
     });
@@ -123,12 +142,14 @@ export async function generateYouTubeSmartLink(
     const articleBase = typeof window !== "undefined" ? window.location.origin : API_BASE;
     const longUrl = `${articleBase}/article/${req.videoId}?d=${encoded}`;
 
-    if (shorten) {
-      const shortLink = await shortenUrl(longUrl);
-      return { success: true, smartLink: shortLink, longUrl, shortLink };
+    // The style chosen in Settings decides what actually gets posted.
+    const style = getSmartLinkStyle();
+    if (style === "article") {
+      // Post the full unlock-page URL directly — no shortener.
+      return { success: true, smartLink: longUrl, longUrl };
     }
-
-    return { success: true, smartLink: longUrl, longUrl };
+    const shortLink = await shortenUrl(longUrl, style === "self");
+    return { success: true, smartLink: shortLink, longUrl, shortLink };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to generate smart link" };
   }
@@ -155,12 +176,12 @@ export async function generateFacebookSmartLink(
     const encoded = base64url(payload);
     const longUrl = `${smartLinkBase()}/u/fb/${req.postId}?d=${encoded}`;
 
-    if (shorten) {
-      const shortLink = await shortenUrl(longUrl);
-      return { success: true, smartLink: shortLink, longUrl, shortLink };
+    const style = getSmartLinkStyle();
+    if (style === "article") {
+      return { success: true, smartLink: longUrl, longUrl };
     }
-
-    return { success: true, smartLink: longUrl, longUrl };
+    const shortLink = await shortenUrl(longUrl, style === "self");
+    return { success: true, smartLink: shortLink, longUrl, shortLink };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to generate smart link" };
   }

@@ -34,6 +34,7 @@ export interface SocialUnlockActions {
   subscribe: boolean;
   like: boolean;
   comment: boolean;
+  discord?: boolean;
 }
 
 export interface UploadDefaults {
@@ -46,6 +47,7 @@ export interface UploadDefaults {
   socialUnlockEnabled?: boolean;
   socialUnlockTargetUrl?: string;
   socialUnlockActions?: SocialUnlockActions;
+  socialUnlockDiscordUrl?: string; // Discord invite, used when actions.discord is on
   socialUnlockHeader?: string; // e.g. "🎁 UNLOCK EXCLUSIVE CONTENT"
   socialUnlockBody?: string;   // e.g. "Unlock exclusive content!\n\nComplete the required actions to access:"
 }

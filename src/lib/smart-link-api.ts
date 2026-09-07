@@ -58,10 +58,12 @@ export interface YouTubeSmartLinkRequest {
   videoId: string;
   channelId: string; // actual YouTube channel ID (UCxxxx...)
   targetUrl: string;
+  discordUrl?: string; // invite link, required only when actions.discord is on
   actions: {
     subscribe: boolean;
     like: boolean;
     comment: boolean;
+    discord?: boolean;
   };
 }
 
@@ -126,18 +128,22 @@ export async function generateYouTubeSmartLink(
   shorten = false
 ): Promise<SmartLinkResponse> {
   try {
-    // Action mask: subscribe=1, like=2, comment=4
+    // Action mask: subscribe=1, like=2, comment=4, discord=8
     let mask = 0;
     if (req.actions.subscribe) mask |= 1;
     if (req.actions.like) mask |= 2;
     if (req.actions.comment) mask |= 4;
+    if (req.actions.discord) mask |= 8;
 
     // Strip "UC" prefix for compact encoding
     const compactChannelId = req.channelId.startsWith("UC")
       ? req.channelId.slice(2)
       : req.channelId;
 
-    const payload = [mask, compactChannelId, req.targetUrl];
+    // A 4th element (Discord invite) is appended only when Join-Discord is required,
+    // so existing 3-element links keep decoding unchanged.
+    const payload: (string | number)[] = [mask, compactChannelId, req.targetUrl];
+    if (req.actions.discord && req.discordUrl) payload.push(req.discordUrl);
     const encoded = base64url(payload);
     // Host on our own domain (falls back to API_BASE only during SSR). The chosen
     // PAGE decides the path: "u" = bare direct-steps gate, "article" = AdSense editorial.

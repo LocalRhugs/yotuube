@@ -22,8 +22,8 @@ export default function ComplianceFooter() {
         </p>
         <p className="text-[11px] text-gray-500">
           Report abuse:{" "}
-          <a href="mailto:abuse@cloud-publish-pro.app" className="underline hover:text-gray-300">
-            abuse@cloud-publish-pro.app
+          <a href="mailto:abuse@combowick.com" className="underline hover:text-gray-300">
+            abuse@combowick.com
           </a>{" "}
           ·{" "}
           <Link to="/terms" className="underline hover:text-gray-300">Terms & DMCA</Link>

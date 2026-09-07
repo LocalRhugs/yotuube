@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { getFacebookPages, getInstagramAccount } from "@/lib/facebook-api";
 import { getYouTubeAuthUrl, getYouTubeChannels, disconnectYouTube, validateYouTubeConfig, getStoredClientIds, saveClientIds, getActiveClientId, setActiveClientId } from "@/lib/youtube-api";
 import { getUploadDefaults, saveUploadDefaults, type UploadDefaults } from "@/lib/youtube-direct";
-import { getSmartLinkStyle, setSmartLinkStyle, type SmartLinkStyle } from "@/lib/smart-link-api";
+import { getSmartLinkPage, setSmartLinkPage, getSmartLinkFormat, setSmartLinkFormat, type SmartLinkPage, type SmartLinkFormat } from "@/lib/smart-link-api";
 import SmartLinkAnalytics from "@/components/SmartLinkAnalytics";
 
 
@@ -609,34 +609,39 @@ const SettingsPage = () => {
 export default SettingsPage;
 
 function SmartLinkStyleSelect() {
-  const [style, setStyle] = useState<SmartLinkStyle>(getSmartLinkStyle());
-  const opts: { v: SmartLinkStyle; label: string; hint: string }[] = [
-    { v: "article", label: "Full unlock page", hint: "yourdomain/article/… — direct AdSense page, no shortener" },
-    { v: "external", label: "External short link", hint: "spoo.me/… — hides your domain, tracks clicks" },
-    { v: "self", label: "Your short link", hint: "yourdomain/s/… — self-hosted, click analytics" },
+  const [page, setPage] = useState<SmartLinkPage>(getSmartLinkPage());
+  const [format, setFormat] = useState<SmartLinkFormat>(getSmartLinkFormat());
+
+  const pageOpts: { v: SmartLinkPage; label: string; hint: string }[] = [
+    { v: "gate", label: "Gate page (direct steps)", hint: "yourdomain/u/… — clean like/comment/subscribe page (old style)" },
+    { v: "article", label: "Article page (AdSense)", hint: "yourdomain/article/… — steps inside an editorial page" },
   ];
-  const current = opts.find((o) => o.v === style)!;
+  const fmtOpts: { v: SmartLinkFormat; label: string; hint: string }[] = [
+    { v: "full", label: "Full link", hint: "post the page URL as-is" },
+    { v: "external", label: "Short — spoo.me", hint: "hides your domain; tracked in your spoo.me dashboard" },
+    { v: "self", label: "Short — your /s/", hint: "self-hosted short link with click analytics" },
+  ];
+  const curPage = pageOpts.find((o) => o.v === page)!;
+  const curFmt = fmtOpts.find((o) => o.v === format)!;
+  const sel = "w-full h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground";
+
   return (
-    <div className="p-3 rounded-lg bg-muted">
-      <p className="text-sm font-medium text-foreground mb-1">Comment / description link style</p>
-      <p className="text-xs text-muted-foreground mb-2">
-        Which link format the Smart Link posts in comments &amp; descriptions. All of them unlock to your Target URL.
-      </p>
-      <select
-        value={style}
-        onChange={(e) => {
-          const v = e.target.value as SmartLinkStyle;
-          setStyle(v);
-          setSmartLinkStyle(v);
-          toast.success("Smart link style saved");
-        }}
-        className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
-      >
-        {opts.map((o) => (
-          <option key={o.v} value={o.v}>{o.label}</option>
-        ))}
-      </select>
-      <p className="text-[11px] text-muted-foreground mt-1.5">{current.hint}</p>
+    <div className="p-3 rounded-lg bg-muted space-y-3">
+      <div>
+        <p className="text-sm font-medium text-foreground mb-1">Unlock page style</p>
+        <select value={page} onChange={(e) => { const v = e.target.value as SmartLinkPage; setPage(v); setSmartLinkPage(v); toast.success("Saved"); }} className={sel}>
+          {pageOpts.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+        </select>
+        <p className="text-[11px] text-muted-foreground mt-1">{curPage.hint}</p>
+      </div>
+      <div>
+        <p className="text-sm font-medium text-foreground mb-1">Link format</p>
+        <select value={format} onChange={(e) => { const v = e.target.value as SmartLinkFormat; setFormat(v); setSmartLinkFormat(v); toast.success("Saved"); }} className={sel}>
+          {fmtOpts.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+        </select>
+        <p className="text-[11px] text-muted-foreground mt-1">{curFmt.hint}</p>
+      </div>
+      <p className="text-[11px] text-muted-foreground">All combinations unlock to your Target URL. Comments &amp; descriptions use whatever you pick here.</p>
     </div>
   );
 }

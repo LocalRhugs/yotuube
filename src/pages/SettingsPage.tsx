@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
 import { getFacebookPages, getInstagramAccount } from "@/lib/facebook-api";
 import { getYouTubeAuthUrl, getYouTubeChannels, disconnectYouTube, validateYouTubeConfig, getStoredClientIds, saveClientIds, getActiveClientId, setActiveClientId } from "@/lib/youtube-api";
 import { getUploadDefaults, saveUploadDefaults, type UploadDefaults } from "@/lib/youtube-direct";
-import { isSelfHostSmartLinks, setSelfHostSmartLinks } from "@/lib/smart-link-api";
+import { getSmartLinkStyle, setSmartLinkStyle, type SmartLinkStyle } from "@/lib/smart-link-api";
 import SmartLinkAnalytics from "@/components/SmartLinkAnalytics";
 
 
@@ -594,7 +594,7 @@ const SettingsPage = () => {
                 </div>
                 <Switch />
               </div>
-              <SelfHostSmartLinkToggle />
+              <SmartLinkStyleSelect />
               <Button className="bg-gradient-brand text-primary-foreground hover:opacity-90" onClick={() => toast.success("Settings saved!")}>Save Settings</Button>
             </div>
 
@@ -608,17 +608,35 @@ const SettingsPage = () => {
 
 export default SettingsPage;
 
-function SelfHostSmartLinkToggle() {
-  const [on, setOn] = useState(isSelfHostSmartLinks());
+function SmartLinkStyleSelect() {
+  const [style, setStyle] = useState<SmartLinkStyle>(getSmartLinkStyle());
+  const opts: { v: SmartLinkStyle; label: string; hint: string }[] = [
+    { v: "article", label: "Full unlock page", hint: "yourdomain/article/… — direct AdSense page, no shortener" },
+    { v: "external", label: "External short link", hint: "spoo.me/… — hides your domain, tracks clicks" },
+    { v: "self", label: "Your short link", hint: "yourdomain/s/… — self-hosted, click analytics" },
+  ];
+  const current = opts.find((o) => o.v === style)!;
   return (
-    <div className="flex items-start justify-between p-3 rounded-lg bg-muted gap-4">
-      <div>
-        <p className="text-sm font-medium text-foreground">Self-host smart links <span className="text-xs text-amber-500 font-normal">(testing)</span></p>
-        <p className="text-xs text-muted-foreground">
-          Generate smart links pointing at this site (<code className="text-[10px]">{window.location.origin}/u/…</code>) instead of the v0-sssw API.
-        </p>
-      </div>
-      <Switch checked={on} onCheckedChange={(v) => { setSelfHostSmartLinks(v); setOn(v); toast.success(v ? "Self-host smart links enabled" : "Using v0-sssw API"); }} />
+    <div className="p-3 rounded-lg bg-muted">
+      <p className="text-sm font-medium text-foreground mb-1">Comment / description link style</p>
+      <p className="text-xs text-muted-foreground mb-2">
+        Which link format the Smart Link posts in comments &amp; descriptions. All of them unlock to your Target URL.
+      </p>
+      <select
+        value={style}
+        onChange={(e) => {
+          const v = e.target.value as SmartLinkStyle;
+          setStyle(v);
+          setSmartLinkStyle(v);
+          toast.success("Smart link style saved");
+        }}
+        className="w-full h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+      >
+        {opts.map((o) => (
+          <option key={o.v} value={o.v}>{o.label}</option>
+        ))}
+      </select>
+      <p className="text-[11px] text-muted-foreground mt-1.5">{current.hint}</p>
     </div>
   );
 }

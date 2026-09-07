@@ -68,8 +68,8 @@ export default function TermsPage() {
           <h2 className="text-xl font-semibold text-white">4. DMCA / copyright</h2>
           <p className="text-sm leading-relaxed">
             To request takedown of content that infringes your copyright, email{" "}
-            <a className="underline text-white" href="mailto:dmca@cloud-publish-pro.app">
-              dmca@cloud-publish-pro.app
+            <a className="underline text-white" href="mailto:dmca@combowick.com">
+              dmca@combowick.com
             </a>{" "}
             with: (a) the URL of the unlock page, (b) the original work, (c) your contact info, and
             (d) a good-faith statement under penalty of perjury that you are authorized to act for the
@@ -81,8 +81,8 @@ export default function TermsPage() {
           <h2 className="text-xl font-semibold text-white">5. Abuse reports</h2>
           <p className="text-sm leading-relaxed">
             Spot a link that violates Section 2? Email{" "}
-            <a className="underline text-white" href="mailto:abuse@cloud-publish-pro.app">
-              abuse@cloud-publish-pro.app
+            <a className="underline text-white" href="mailto:abuse@combowick.com">
+              abuse@combowick.com
             </a>{" "}
             with the full unlock URL. We action verified reports within 24 hours.
           </p>

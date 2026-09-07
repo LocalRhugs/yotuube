@@ -22,24 +22,28 @@ export function setSelfHostSmartLinks(enabled: boolean) {
   try { localStorage.setItem(SELF_HOST_FLAG, enabled ? "true" : "false"); } catch {}
 }
 
-// The link FORMAT posted in comments/descriptions (user-chosen in Settings):
-//   "article"  = the full unlock-page URL as-is  (yourdomain/article/…, AdSense page, no shortener)
-//   "external" = shortened via spoo.me / da.gd    (hides your domain)
-//   "self"     = shortened on your own domain      (yourdomain/s/…, click analytics)
-export type SmartLinkStyle = "article" | "external" | "self";
-const STYLE_KEY = "smart_link_style";
-
-export function getSmartLinkStyle(): SmartLinkStyle {
-  try {
-    const v = localStorage.getItem(STYLE_KEY);
-    if (v === "article" || v === "external" || v === "self") return v;
-  } catch {}
-  return "article"; // default: the full unlock-page link
+// Which UNLOCK PAGE the smart link points at:
+//   "gate"    = a bare direct-steps page  (yourdomain/u/<videoId>?d=…) — the clean old-style gate
+//   "article" = an editorial AdSense page (yourdomain/article/<videoId>?d=…)
+export type SmartLinkPage = "gate" | "article";
+const PAGE_KEY = "smart_link_page";
+export function getSmartLinkPage(): SmartLinkPage {
+  try { const v = localStorage.getItem(PAGE_KEY); if (v === "gate" || v === "article") return v; } catch {}
+  return "gate";
 }
+export function setSmartLinkPage(p: SmartLinkPage) { try { localStorage.setItem(PAGE_KEY, p); } catch {} }
 
-export function setSmartLinkStyle(style: SmartLinkStyle) {
-  try { localStorage.setItem(STYLE_KEY, style); } catch {}
+// How the link is FORMATTED when posted:
+//   "full"     = the full unlock-page URL as-is
+//   "external" = shortened via spoo.me / da.gd (hides your domain; tracked in your spoo.me dashboard)
+//   "self"     = shortened on your own domain  (yourdomain/s/…, self-hosted analytics)
+export type SmartLinkFormat = "full" | "external" | "self";
+const FORMAT_KEY = "smart_link_format";
+export function getSmartLinkFormat(): SmartLinkFormat {
+  try { const v = localStorage.getItem(FORMAT_KEY); if (v === "full" || v === "external" || v === "self") return v; } catch {}
+  return "full";
 }
+export function setSmartLinkFormat(f: SmartLinkFormat) { try { localStorage.setItem(FORMAT_KEY, f); } catch {} }
 
 function smartLinkBase(): string {
   if (isSelfHostSmartLinks() && typeof window !== "undefined") {
@@ -135,20 +139,18 @@ export async function generateYouTubeSmartLink(
 
     const payload = [mask, compactChannelId, req.targetUrl];
     const encoded = base64url(payload);
-    // Always host the gate inside a dynamic article on our own domain so
-    // the URL that spoo.me / da.gd shortens points at an editorial page
-    // (AdSense-safe) instead of a bare bridge page. Falls back to API_BASE
-    // only during SSR where window is undefined.
-    const articleBase = typeof window !== "undefined" ? window.location.origin : API_BASE;
-    const longUrl = `${articleBase}/article/${req.videoId}?d=${encoded}`;
+    // Host on our own domain (falls back to API_BASE only during SSR). The chosen
+    // PAGE decides the path: "u" = bare direct-steps gate, "article" = AdSense editorial.
+    const siteBase = typeof window !== "undefined" ? window.location.origin : API_BASE;
+    const path = getSmartLinkPage() === "gate" ? "u" : "article";
+    const longUrl = `${siteBase}/${path}/${req.videoId}?d=${encoded}`;
 
-    // The style chosen in Settings decides what actually gets posted.
-    const style = getSmartLinkStyle();
-    if (style === "article") {
-      // Post the full unlock-page URL directly — no shortener.
+    // The chosen FORMAT decides what actually gets posted.
+    const fmt = getSmartLinkFormat();
+    if (fmt === "full") {
       return { success: true, smartLink: longUrl, longUrl };
     }
-    const shortLink = await shortenUrl(longUrl, style === "self");
+    const shortLink = await shortenUrl(longUrl, fmt === "self");
     return { success: true, smartLink: shortLink, longUrl, shortLink };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to generate smart link" };
@@ -176,11 +178,11 @@ export async function generateFacebookSmartLink(
     const encoded = base64url(payload);
     const longUrl = `${smartLinkBase()}/u/fb/${req.postId}?d=${encoded}`;
 
-    const style = getSmartLinkStyle();
-    if (style === "article") {
+    const fmt = getSmartLinkFormat();
+    if (fmt === "full") {
       return { success: true, smartLink: longUrl, longUrl };
     }
-    const shortLink = await shortenUrl(longUrl, style === "self");
+    const shortLink = await shortenUrl(longUrl, fmt === "self");
     return { success: true, smartLink: shortLink, longUrl, shortLink };
   } catch (err: any) {
     return { success: false, error: err.message || "Failed to generate smart link" };

@@ -476,6 +476,7 @@ const UploadPage = () => {
                     videoId: res.videoId,
                     channelId: actualChannelId,
                     targetUrl: defaults.socialUnlockTargetUrl,
+                    discordUrl: defaults.socialUnlockDiscordUrl,
                     actions: defaults.socialUnlockActions || { subscribe: true, like: true, comment: false },
                   }, true);
                   if (slRes.success && slRes.smartLink) {
@@ -646,6 +647,7 @@ const UploadPage = () => {
                         videoId: shortsRes.videoId,
                         channelId: dest.channelId,
                         targetUrl: defaults.socialUnlockTargetUrl,
+                        discordUrl: defaults.socialUnlockDiscordUrl,
                         actions: defaults.socialUnlockActions || { subscribe: true, like: true, comment: false },
                       }, true);
 

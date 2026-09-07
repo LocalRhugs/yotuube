@@ -304,23 +304,34 @@ const UploadPage = () => {
     const publishResults: PublishResult[] = [];
 
     try {
-      setUploadProgress('Uploading video to storage...');
-      const ext = selectedFile.name.split('.').pop() || 'mp4';
-      const storagePath = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('videos').upload(storagePath, selectedFile, { contentType: selectedFile.type });
-
-      if (uploadError) {
-        toast.error(`Storage upload failed: ${uploadError.message}`);
-        setUploading(false);
-        return;
-      }
-
-      const { data: { publicUrl } } = supabase.storage.from('videos').getPublicUrl(storagePath);
-      toast.success('Video uploaded to storage!');
-
       const selected = destinations.filter(d => activeAccountIds.includes(d.id));
+
+      // The video only needs staging in Supabase Storage for Facebook/Instagram (they pull
+      // from a public URL) or a YouTube channel with no OAuth token (server-side fallback).
+      // A YouTube channel WITH a token uploads the file DIRECTLY (chunked resumable), so a
+      // normal YouTube upload skips storage entirely — dodging the bucket's file-size cap
+      // ("The object exceeded the maximum allowed size").
+      const needsStorage = selected.some(d =>
+        d.platform === 'facebook' || d.platform === 'instagram' ||
+        (d.platform === 'youtube' && !d.accessToken && !d.channelTokenId)
+      );
+
+      let storagePath: string | null = null;
+      let publicUrl = '';
+      if (needsStorage) {
+        setUploadProgress('Uploading video to storage...');
+        const ext = selectedFile.name.split('.').pop() || 'mp4';
+        storagePath = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from('videos').upload(storagePath, selectedFile, { contentType: selectedFile.type });
+        if (uploadError) {
+          toast.error(`Storage upload failed: ${uploadError.message}`);
+          setUploading(false);
+          return;
+        }
+        publicUrl = supabase.storage.from('videos').getPublicUrl(storagePath).data.publicUrl;
+        toast.success('Video uploaded to storage!');
+      }
       const tags = selectedTags.join(',');
 
       // Per-channel language: translate title/description per destination's assigned language.
@@ -451,7 +462,8 @@ const UploadPage = () => {
               res = await ytUploadOnce();
             }
             if (res.success && res.videoId && thumbnail) {
-              await uploadThumbnail(dest.accessToken, res.videoId, thumbnail);
+              const thumbOk = await uploadThumbnail(dest.accessToken, res.videoId, thumbnail);
+              if (!thumbOk) toast.warning(`${dest.name}: video uploaded, but the custom thumbnail was rejected. Custom thumbnails require a phone-verified YouTube channel (also check image is JPG/PNG under 2MB).`);
             }
             // Generate smart link if social unlock is enabled
             if (res.success && res.videoId) {
@@ -688,9 +700,11 @@ const UploadPage = () => {
                 });
               }
             }
-          } else {
+          } else if (storagePath) {
             const res = await uploadToYouTube(storagePath, title, description, selectedTags, privacy);
             publishResults.push({ destinationId: dest.id, destinationName: dest.name, platform: 'YouTube', success: res.success, error: res.error });
+          } else {
+            publishResults.push({ destinationId: dest.id, destinationName: dest.name, platform: 'YouTube', success: false, error: 'This channel has no upload token — reconnect it in Settings.' });
           }
         }
       };
@@ -734,7 +748,7 @@ const UploadPage = () => {
         }
       } catch {}
 
-      await supabase.storage.from('videos').remove([storagePath]);
+      if (storagePath) await supabase.storage.from('videos').remove([storagePath]);
     } catch (err: any) {
       toast.error(`Upload failed: ${err.message}`);
     } finally {

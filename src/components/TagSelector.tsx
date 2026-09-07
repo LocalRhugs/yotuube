@@ -45,12 +45,22 @@ const TagSelector = ({ selectedTags, onChange, disabled }: TagSelectorProps) => 
     (t) => !selectedTags.includes(t) && t.toLowerCase().includes(search.toLowerCase())
   );
 
-  const addTag = (tag: string) => {
-    const cleaned = tag.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (cleaned && !selectedTags.includes(cleaned)) {
-      onChange([...selectedTags, cleaned]);
-    }
+  // Clean ONE tag but keep spaces — YouTube tags are often multi-word
+  // (e.g. "steal an egg script"). Only strip characters YouTube doesn't allow.
+  const cleanTag = (t: string) =>
+    t.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+
+  // Add one OR many tags: split on commas / newlines so a pasted list
+  // ("a, b, c") becomes separate tags instead of one welded-together tag.
+  const addTags = (raw: string) => {
+    const parts = raw.split(/[,\n]+/).map(cleanTag).filter(Boolean);
+    if (parts.length === 0) return;
+    const next = [...selectedTags];
+    for (const p of parts) if (!next.includes(p)) next.push(p);
+    if (next.length !== selectedTags.length) onChange(next);
   };
+
+  const addTag = (tag: string) => addTags(tag);
 
   const removeTag = (tag: string) => {
     onChange(selectedTags.filter((t) => t !== tag));
@@ -58,7 +68,7 @@ const TagSelector = ({ selectedTags, onChange, disabled }: TagSelectorProps) => 
 
   const addCustomTag = () => {
     if (customTag.trim()) {
-      addTag(customTag);
+      addTags(customTag);
       setCustomTag("");
     }
   };
@@ -106,10 +116,14 @@ const TagSelector = ({ selectedTags, onChange, disabled }: TagSelectorProps) => 
             />
             <div className="flex gap-1.5">
               <Input
-                placeholder="Add custom tag..."
+                placeholder="Add tag(s) — commas OK..."
                 value={customTag}
                 onChange={(e) => setCustomTag(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomTag(); } }}
+                onPaste={(e) => {
+                  const text = e.clipboardData.getData("text");
+                  if (/[,\n]/.test(text)) { e.preventDefault(); addTags(text); setCustomTag(""); }
+                }}
                 className="h-8 text-xs"
               />
               <Button size="sm" variant="outline" className="h-8 px-2" onClick={addCustomTag}>

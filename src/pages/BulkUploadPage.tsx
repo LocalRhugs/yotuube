@@ -243,6 +243,7 @@ const BulkUploadPage = () => {
               videoId: result.videoId,
               channelId: channelData.channelId,
               targetUrl: defaults.socialUnlockTargetUrl,
+              discordUrl: defaults.socialUnlockDiscordUrl,
               actions: defaults.socialUnlockActions || { subscribe: true, like: true, comment: false },
             }, true);
             if (slRes.success && slRes.smartLink) {

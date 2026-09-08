@@ -27,6 +27,7 @@ interface YtChannel {
   id: string;
   channelId: string;
   channelTitle: string;
+  clientId?: string | null;
 }
 
 const YtIcon = () => (
@@ -405,6 +406,7 @@ const SettingsPage = () => {
                   <span className="text-xs text-muted-foreground">Currently using custom Client ID</span>
                 </div>
               )}
+              <ChannelClientMap channels={ytChannels} clientIds={clientIds} />
             </div>
           </motion.div>
         </TabsContent>
@@ -619,6 +621,53 @@ const SettingsPage = () => {
 };
 
 export default SettingsPage;
+
+// Shows which connected channel is bound to which Google client, and flags clients
+// carrying more than one channel (a broadcast to all of them drains that client fast).
+function ChannelClientMap({ channels, clientIds }: { channels: YtChannel[]; clientIds: string[] }) {
+  if (!channels || channels.length === 0) return null;
+  const UPLOAD_UNITS = 1600, DAILY = 10000;
+  const groups = new Map<string, YtChannel[]>();
+  for (const ch of channels) {
+    const key = ch.clientId || "__default__";
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(ch);
+  }
+  const label = (cid: string) => {
+    if (cid === "__default__") return "Default backend client";
+    const idx = clientIds.indexOf(cid);
+    return idx >= 0 ? `Client ${idx + 1}` : `Client (${cid.slice(0, 14)}…)`;
+  };
+  return (
+    <div className="mt-6 pt-4 border-t border-border/50">
+      <p className="text-sm font-semibold text-foreground mb-1">Channel ↔ Client map</p>
+      <p className="text-xs text-muted-foreground mb-3">
+        Each client = one Google project ≈ {Math.floor(DAILY / UPLOAD_UNITS)} uploads/day. Spread channels across clients so a broadcast doesn't drain one.
+      </p>
+      <div className="space-y-2">
+        {[...groups.entries()].map(([cid, chs]) => {
+          const perBroadcast = chs.length * UPLOAD_UNITS;
+          const broadcasts = Math.floor(DAILY / perBroadcast);
+          const overloaded = chs.length > 1;
+          return (
+            <div key={cid} className={`rounded-lg border p-3 ${overloaded ? "border-amber-500/40 bg-amber-500/5" : "border-border/50 bg-muted/40"}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-foreground">{label(cid)}</span>
+                <span className="text-[11px] text-muted-foreground">{chs.length} channel{chs.length > 1 ? "s" : ""}</span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">{chs.map((c) => c.channelTitle).join(", ")}</div>
+              {overloaded && (
+                <div className="text-[11px] text-amber-500 mt-1.5">
+                  ⚠ A broadcast to all {chs.length} here costs {perBroadcast.toLocaleString()} units → only ~{broadcasts} full broadcast{broadcasts === 1 ? "" : "s"}/day before this client is drained. Move some to another client.
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function SmartLinkStyleSelect() {
   const [page, setPage] = useState<SmartLinkPage>(getSmartLinkPage());

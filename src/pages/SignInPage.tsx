@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Cloud, Sparkles, Link2, BarChart3 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 
 export default function SignInPage() {
@@ -28,11 +27,18 @@ export default function SignInPage() {
 
   const handleGoogle = async () => {
     setError(null);
-    const res = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: `${window.location.origin}/signin?next=${encodeURIComponent(next)}`,
-      extraParams: { prompt: "select_account" },
+    // Use Supabase's native Google OAuth directly. The Lovable auth SDK routed through
+    // /~oauth/initiate, a server endpoint that only exists on Lovable hosting — on Vercel
+    // it fell through to the SPA and 404'd. Supabase's flow runs entirely on its own hosted
+    // endpoints (authorize + callback), so it works on any host and lands back on /signin.
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/signin?next=${encodeURIComponent(next)}`,
+        queryParams: { prompt: "select_account" },
+      },
     });
-    if (res.error) setError(res.error.message || "Sign-in failed");
+    if (error) setError(error.message || "Sign-in failed");
   };
 
 

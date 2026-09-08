@@ -4,11 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Facebook, Instagram, Key, User, Upload, Settings as SettingsIcon, Loader2, CheckCircle2, XCircle, ExternalLink, Unplug, Plus, Trash2, Globe, Lock, Eye, Link2, RefreshCw } from "lucide-react";
+import { Facebook, Instagram, Key, User, Upload, Settings as SettingsIcon, Loader2, CheckCircle2, XCircle, ExternalLink, Unplug, Plus, Trash2, Globe, Lock, Eye, Link2, RefreshCw, FileText, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { getFacebookPages, getInstagramAccount } from "@/lib/facebook-api";
-import { getYouTubeAuthUrl, getYouTubeChannels, disconnectYouTube, validateYouTubeConfig, getStoredClientIds, saveClientIds, getActiveClientId, setActiveClientId } from "@/lib/youtube-api";
+import { getYouTubeAuthUrl, getYouTubeChannels, disconnectYouTube, validateYouTubeConfig, getStoredClientIds, saveClientIds, getActiveClientId, setActiveClientId, getChannelBios, updateChannelBio } from "@/lib/youtube-api";
 import { LANG_OPTIONS, getChannelLangMap, setChannelLang, seedChannelLangPlan } from "@/lib/channel-langs";
 import { getUploadDefaults, saveUploadDefaults, type UploadDefaults } from "@/lib/youtube-direct";
 import { getSmartLinkPage, setSmartLinkPage, getSmartLinkFormat, setSmartLinkFormat, type SmartLinkPage, type SmartLinkFormat } from "@/lib/smart-link-api";
@@ -181,6 +181,9 @@ const SettingsPage = () => {
           </TabsTrigger>
           <TabsTrigger value="defaults" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <Upload className="w-4 h-4 mr-2" /> Defaults
+          </TabsTrigger>
+          <TabsTrigger value="bios" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <FileText className="w-4 h-4 mr-2" /> Bios
           </TabsTrigger>
           <TabsTrigger value="general" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <SettingsIcon className="w-4 h-4 mr-2" /> General
@@ -623,6 +626,13 @@ const SettingsPage = () => {
         </TabsContent>
 
         {/* General Tab */}
+        {/* Bios Tab */}
+        <TabsContent value="bios">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+            <ChannelBiosSection />
+          </motion.div>
+        </TabsContent>
+
         <TabsContent value="general">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-5">
             <h2 className="font-display font-semibold text-foreground">General Settings</h2>
@@ -647,6 +657,116 @@ const SettingsPage = () => {
 };
 
 export default SettingsPage;
+
+// Channel bio editor. Reads each connected channel's current YouTube "About" description
+// straight from the API, lets you edit it inline, and writes it back (channels.update
+// brandingSettings). No manual copy-paste into YouTube Studio per channel.
+interface BioRow {
+  id: string;
+  channelId: string;
+  channelTitle: string;
+  description: string;
+  ok: boolean;
+  error?: string;
+}
+function ChannelBiosSection() {
+  const [rows, setRows] = useState<BioRow[]>([]);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+
+  const load = async () => {
+    setLoading(true);
+    const res = await getChannelBios();
+    if (res.success && res.data?.channels) {
+      const list: BioRow[] = res.data.channels;
+      setRows(list);
+      setDraft(Object.fromEntries(list.map((c) => [c.id, c.description])));
+    } else {
+      toast.error(res.error || "Failed to load channel bios");
+    }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const save = async (row: BioRow) => {
+    const description = draft[row.id] ?? "";
+    setSaving((s) => ({ ...s, [row.id]: true }));
+    const res = await updateChannelBio(row.id, description);
+    setSaving((s) => ({ ...s, [row.id]: false }));
+    if (res.success) {
+      toast.success(`Bio saved — ${row.channelTitle}`);
+      setRows((rs) => rs.map((r) => (r.id === row.id ? { ...r, description } : r)));
+    } else {
+      toast.error(res.error || `Failed to save ${row.channelTitle}`);
+    }
+  };
+
+  return (
+    <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-display font-semibold text-foreground flex items-center gap-2">
+            <FileText className="w-4 h-4 text-youtube" /> Channel Bios
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Edit each channel's YouTube "About" description here — writes live to YouTube. Keep it in the channel's own language.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+        </Button>
+      </div>
+
+      {loading && rows.length === 0 ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground py-8 justify-center">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading bios from YouTube…
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">No connected channels.</p>
+      ) : (
+        <div className="space-y-4">
+          {rows.map((row) => {
+            const dirty = (draft[row.id] ?? "") !== row.description;
+            const count = (draft[row.id] ?? "").length;
+            return (
+              <div key={row.id} className="rounded-lg border border-border/60 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <span className="text-youtube"><YtIcon /></span>
+                    {row.channelTitle}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] ${count > 1000 ? "text-destructive" : "text-muted-foreground"}`}>{count}/1000</span>
+                    <Button
+                      size="sm"
+                      className="bg-gradient-brand text-primary-foreground hover:opacity-90"
+                      disabled={!dirty || saving[row.id] || count > 1000}
+                      onClick={() => save(row)}
+                    >
+                      {saving[row.id] ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Save className="w-3.5 h-3.5 mr-1" />}
+                      Save
+                    </Button>
+                  </div>
+                </div>
+                {row.error && (
+                  <p className="text-[11px] text-destructive mb-2">⚠ {row.error}</p>
+                )}
+                <Textarea
+                  value={draft[row.id] ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, [row.id]: e.target.value }))}
+                  rows={5}
+                  className="text-sm font-mono resize-y"
+                  placeholder="Channel description…"
+                />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // Shows which connected channel is bound to which Google client, and flags clients
 // carrying more than one channel (a broadcast to all of them drains that client fast).

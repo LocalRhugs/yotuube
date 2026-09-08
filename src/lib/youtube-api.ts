@@ -124,6 +124,14 @@ export async function getRecentPerformance() {
   return invokeYouTubeAuth({ action: 'get_recent_performance' });
 }
 
+export async function getChannelBios() {
+  return invokeYouTubeAuth({ action: 'get_channel_bios' });
+}
+
+export async function updateChannelBio(channelTokenId: string, description: string) {
+  return invokeYouTubeAuth({ action: 'update_channel_bio', channelTokenId, description });
+}
+
 export async function validateYouTubeConfig(redirectUri: string) {
   return invokeYouTubeAuth({ action: 'validate', redirectUri });
 }

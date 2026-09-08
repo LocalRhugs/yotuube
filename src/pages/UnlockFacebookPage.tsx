@@ -49,9 +49,11 @@ export default function UnlockFacebookPage() {
   const [verifying, setVerifying] = useState<Record<string, boolean>>({});
   const [actionsDone, setActionsDone] = useState(false);
   const [bonusClicks, setBonusClicks] = useState(0);
-  const unlocked = actionsDone && bonusClicks >= 2;
+  const readyToUnlock = actionsDone;
+  const REQUIRED_AD_CLICKS = 2;
+  const DIRECT_LINK = "https://omg10.com/4/11035810";
 
-  // Inject Monetag tag.min.js once + add noindex meta
+  // noindex meta (popunder ad removed per request).
   useEffect(() => {
     const robots = document.createElement('meta');
     robots.name = 'robots';
@@ -61,15 +63,6 @@ export default function UnlockFacebookPage() {
     rating.name = 'rating';
     rating.content = 'general';
     document.head.appendChild(rating);
-
-    if (!document.querySelector('script[data-monetag="zone"]')) {
-      const s = document.createElement('script');
-      s.dataset.zone = '11035793';
-      s.dataset.monetag = 'zone';
-      s.src = 'https://al5sm.com/tag.min.js';
-      s.async = true;
-      document.body.appendChild(s);
-    }
     return () => { robots.remove(); rating.remove(); };
   }, []);
 
@@ -97,13 +90,17 @@ export default function UnlockFacebookPage() {
     }, 5000);
   };
 
-  const handleBonusClick = () => {
-    window.open("https://omg10.com/4/11035810", "_blank");
-    setBonusClicks(c => Math.min(2, c + 1));
-  };
-
+  // Direct-link ad clicks are folded INTO the unlock button (no visible "click 2x" button).
   const handleUnlock = () => {
-    if (unlocked && data?.targetUrl) window.location.href = data.targetUrl;
+    if (!readyToUnlock || !data?.targetUrl) return;
+    if (bonusClicks >= REQUIRED_AD_CLICKS) { window.location.href = data.targetUrl; return; }
+    window.open(DIRECT_LINK, "_blank");
+    const n = bonusClicks + 1;
+    setBonusClicks(n);
+    if (n >= REQUIRED_AD_CLICKS) {
+      const url = data.targetUrl;
+      setTimeout(() => { window.location.href = url; }, 250);
+    }
   };
 
   if (!data) {
@@ -169,30 +166,21 @@ export default function UnlockFacebookPage() {
             )}
           </div>
           <div className="p-6 bg-white/5 border-t border-white/5 space-y-3">
-            {actionsDone && bonusClicks < 2 && (
-              <Button
-                onClick={handleBonusClick}
-                className="w-full h-12 text-base font-bold bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white shadow-lg shadow-orange-500/25 animate-pulse"
-              >
-                <span className="flex items-center gap-2">
-                  <ArrowRight className="w-5 h-5" />
-                  Click this button {2 - bonusClicks} more time{2 - bonusClicks === 1 ? "" : "s"}
-                </span>
-              </Button>
-            )}
             <Button
               className={`w-full h-12 text-lg font-bold transition-all duration-300 ${
-                unlocked ? `bg-gradient-to-r ${gradient} hover:opacity-90 shadow-lg` : "bg-gray-700 text-gray-400 cursor-not-allowed"
+                readyToUnlock ? `bg-gradient-to-r ${gradient} hover:opacity-90 shadow-lg` : "bg-gray-700 text-gray-400 cursor-not-allowed"
               }`}
               onClick={handleUnlock}
-              disabled={!unlocked}
+              disabled={!readyToUnlock}
             >
-              {unlocked
+              {readyToUnlock
                 ? <span className="flex items-center gap-2"><Download className="w-5 h-5" />Unlock Link</span>
                 : <span className="flex items-center gap-2"><Lock className="w-4 h-4" />Complete Steps to Unlock</span>}
             </Button>
             {!actionsDone && <p className="text-center text-xs text-gray-500">Checking for completion automatically...</p>}
-            {actionsDone && bonusClicks < 2 && <p className="text-center text-xs text-amber-400">One more step — click the orange button above to unlock!</p>}
+            {readyToUnlock && bonusClicks > 0 && bonusClicks < REQUIRED_AD_CLICKS && (
+              <p className="text-center text-xs text-gray-400">Almost there — tap Unlock once more.</p>
+            )}
           </div>
         </Card>
         <p className="text-center text-xs text-gray-600">Powered by Social Unlock (self-hosted • testing)</p>

@@ -29,7 +29,8 @@ interface VideoData {
   likeCount: string;
   commentCount: string;
   privacyStatus: string;
-  duration?: string; // ISO-8601 (e.g. PT47S, PT3M12S); used to tell Shorts from long-form
+  duration?: string;  // ISO-8601 (e.g. PT47S, PT3M12S)
+  isShort?: boolean;  // authoritative flag from the backend's /shorts/ probe
 }
 
 // Parse an ISO-8601 duration ("PT1H2M3S") into total seconds.
@@ -40,9 +41,11 @@ const durationToSeconds = (iso?: string): number => {
   return (+(m[1] || 0)) * 3600 + (+(m[2] || 0)) * 60 + (+(m[3] || 0));
 };
 
-// A video is a Short if it's ≤ 60s, or it's tagged #shorts (covers manual/older uploads
-// whose duration metadata is missing). A 2:32 long-form has neither, so it stays long-form.
+// Prefer the backend's authoritative flag (a real youtube.com/shorts/<id> check, which is how
+// YouTube itself splits /shorts vs /videos). Fall back to the duration/#shorts heuristic only
+// for responses that predate the flag.
 const isShortVideo = (v: VideoData): boolean => {
+  if (typeof v.isShort === "boolean") return v.isShort;
   const s = durationToSeconds(v.duration);
   if (s > 0 && s <= 60) return true;
   return /#shorts?\b/i.test(`${v.title} ${v.description}`);

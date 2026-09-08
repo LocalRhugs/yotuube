@@ -376,6 +376,56 @@ const UploadPage = () => {
         return out;
       };
 
+      // Shorts encode is IDENTICAL for every channel (same source clip, same duration,
+      // same scale/pad) — so encode ONCE and reuse the resulting File for all destinations
+      // instead of re-running FFmpeg per channel. Memoized: the first caller does the work,
+      // everyone else awaits the same promise.
+      let shortsFilePromise: Promise<File> | null = null;
+      const getShortsFile = (): Promise<File> => {
+        if (shortsFilePromise) return shortsFilePromise;
+        shortsFilePromise = (async () => {
+          setUploadProgress("Creating Shorts version (once, reused for all channels)...");
+          const { FFmpeg } = await import("@ffmpeg/ffmpeg");
+          const { toBlobURL } = await import("@ffmpeg/util");
+          const ffmpeg = new FFmpeg();
+          const hasSharedArrayBuffer = typeof SharedArrayBuffer !== "undefined";
+          const mtSources = [
+            "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd",
+            "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd",
+          ];
+          const stSources = [
+            "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm",
+            "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm",
+            "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/umd",
+            "https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/umd",
+          ];
+          const cdnSources = hasSharedArrayBuffer ? [...mtSources, ...stSources] : stSources;
+          let loaded = false;
+          for (const baseURL of cdnSources) {
+            try {
+              await ffmpeg.load({
+                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+              });
+              loaded = true;
+              break;
+            } catch { continue; }
+          }
+          if (!loaded) throw new Error("FFmpeg failed to load");
+          await ffmpeg.writeFile("input.mp4", new Uint8Array(await selectedFile.arrayBuffer()));
+          await ffmpeg.exec([
+            "-i", "input.mp4", "-ss", "0", "-to", customShortsDuration.toString(),
+            "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-c:a", "aac", "-b:a", "128k", "output.mp4"
+          ]);
+          const shortsData = await ffmpeg.readFile("output.mp4");
+          const uint8 = shortsData instanceof Uint8Array ? shortsData : new TextEncoder().encode(shortsData as string);
+          const shortsBlob = new Blob([new Uint8Array(uint8)], { type: "video/mp4" });
+          return new File([shortsBlob], `shorts_${selectedFile.name}`, { type: "video/mp4" });
+        })();
+        return shortsFilePromise;
+      };
+
       for (let repeatIdx = 0; repeatIdx < repeatCount; repeatIdx++) {
         const repeatLabel = repeatCount > 1 ? ` (copy ${repeatIdx + 1}/${repeatCount})` : '';
 
@@ -584,45 +634,9 @@ const UploadPage = () => {
 
             // Dual upload as Shorts
             if (dualUpload && res.success && videoDuration && videoDuration > 60) {
-              setUploadProgress(`Creating Shorts version for ${dest.name}...`);
               try {
-                const { FFmpeg } = await import("@ffmpeg/ffmpeg");
-                const { toBlobURL } = await import("@ffmpeg/util");
-                const ffmpeg = new FFmpeg();
-                const hasSharedArrayBuffer = typeof SharedArrayBuffer !== "undefined";
-                const mtSources = [
-                  "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd",
-                  "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd",
-                ];
-                const stSources = [
-                  "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm",
-                  "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm",
-                  "https://cdn.jsdelivr.net/npm/@ffmpeg/core-st@0.11.1/dist/umd",
-                  "https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/umd",
-                ];
-                const cdnSources = hasSharedArrayBuffer ? [...mtSources, ...stSources] : stSources;
-                let loaded = false;
-                for (const baseURL of cdnSources) {
-                  try {
-                    await ffmpeg.load({
-                      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-                      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
-                    });
-                    loaded = true;
-                    break;
-                  } catch { continue; }
-                }
-                if (!loaded) throw new Error("FFmpeg failed to load");
-                await ffmpeg.writeFile("input.mp4", new Uint8Array(await selectedFile.arrayBuffer()));
-                await ffmpeg.exec([
-                  "-i", "input.mp4", "-ss", "0", "-to", customShortsDuration.toString(),
-                  "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
-                  "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-c:a", "aac", "-b:a", "128k", "output.mp4"
-                ]);
-                const shortsData = await ffmpeg.readFile("output.mp4");
-                const uint8 = shortsData instanceof Uint8Array ? shortsData : new TextEncoder().encode(shortsData as string);
-                const shortsBlob = new Blob([new Uint8Array(uint8)], { type: "video/mp4" });
-                const shortsFile = new File([shortsBlob], `shorts_${selectedFile.name}`, { type: "video/mp4" });
+                // Reuse the single pre-encoded Short (encoded once, shared across all channels).
+                const shortsFile = await getShortsFile();
 
                 setUploadProgress(`Uploading Shorts version to ${dest.name}...`);
                 const shortsTitle = `${title} #Shorts`;

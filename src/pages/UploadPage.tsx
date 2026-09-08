@@ -20,7 +20,7 @@ import VideoEditor from "@/components/VideoEditor";
 import VideoCommentManager from "@/components/VideoCommentManager";
 import TagSelector from "@/components/TagSelector";
 import { getStoredChannels, uploadVideoToYouTube, uploadThumbnail, getUploadDefaults, getFreshAccessToken } from "@/lib/youtube-direct";
-import { generateYouTubeSmartLink, generateFacebookSmartLink, translateText } from "@/lib/smart-link-api";
+import { generateYouTubeSmartLink, generateFacebookSmartLink, translateText, parseYouTubeVideoId } from "@/lib/smart-link-api";
 import { TranslationModelSelect } from "@/components/TranslationModelSelect";
 import { suggestHashtags, improveDescription } from "@/lib/ai-suggest";
 
@@ -527,6 +527,8 @@ const UploadPage = () => {
                     channelId: actualChannelId,
                     targetUrl: defaults.socialUnlockTargetUrl,
                     discordUrl: defaults.socialUnlockDiscordUrl,
+                    watchVideoId: parseYouTubeVideoId(defaults.socialUnlockWatchVideoUrl || ""),
+                    watchSeconds: defaults.socialUnlockWatchSeconds,
                     actions: defaults.socialUnlockActions || { subscribe: true, like: true, comment: false },
                   }, true);
                   if (slRes.success && slRes.smartLink) {
@@ -662,6 +664,8 @@ const UploadPage = () => {
                         channelId: dest.channelId,
                         targetUrl: defaults.socialUnlockTargetUrl,
                         discordUrl: defaults.socialUnlockDiscordUrl,
+                        watchVideoId: parseYouTubeVideoId(defaults.socialUnlockWatchVideoUrl || ""),
+                        watchSeconds: defaults.socialUnlockWatchSeconds,
                         actions: defaults.socialUnlockActions || { subscribe: true, like: true, comment: false },
                       }, true);
 

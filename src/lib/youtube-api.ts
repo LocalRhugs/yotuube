@@ -116,6 +116,10 @@ export async function getAllChannelStats() {
   return invokeYouTubeAuth({ action: 'get_all_channel_stats' });
 }
 
+export async function getChannelSnapshots() {
+  return invokeYouTubeAuth({ action: 'get_snapshots' });
+}
+
 export async function validateYouTubeConfig(redirectUri: string) {
   return invokeYouTubeAuth({ action: 'validate', redirectUri });
 }

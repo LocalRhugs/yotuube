@@ -272,17 +272,24 @@ export async function translateText(
     }
   };
 
+  // A model occasionally echoes the source back UNTRANSLATED (esp. short, brand-heavy
+  // titles on flash-lite) — a 200 that isn't a real translation. Treat that as a miss
+  // and escalate to the next (smarter) model.
+  const isReal = (out?: string) => !!out && out.trim().toLowerCase() !== text.trim().toLowerCase();
+
   const first = await tryOne(chosen);
-  if (first.success) return first;
-  // Gemini fallback — cheapest model first, then the latest full Flash if flash-lite is
-  // congested. Skips whichever model was already the primary. Each call load-spreads
-  // across all Gemini keys server-side.
+  if (first.success && isReal(first.translatedText)) return first;
+
+  // Gemini fallback — cheapest model first, then the latest full Flash. Handles both a
+  // failed primary AND an echoed/untranslated result. Load-spreads across all keys server-side.
+  let best = first.success ? first : null;   // keep a 200-but-echoed result as last resort
   let lastErr = first.error;
   for (const g of ["gemini:gemini-flash-lite-latest", "gemini:gemini-flash-latest"]) {
     if (g === chosen) continue;
     const fb = await tryOne(g);
-    if (fb.success) return fb;
-    lastErr = fb.error;
+    if (fb.success && isReal(fb.translatedText)) return fb;
+    if (fb.success && !best) best = fb;
+    if (!fb.success) lastErr = fb.error;
   }
-  return { success: false, error: lastErr };
+  return best ?? { success: false, error: lastErr };
 }

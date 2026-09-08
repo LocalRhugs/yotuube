@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { getFacebookPages, getInstagramAccount } from "@/lib/facebook-api";
 import { getYouTubeAuthUrl, getYouTubeChannels, disconnectYouTube, validateYouTubeConfig, getStoredClientIds, saveClientIds, getActiveClientId, setActiveClientId } from "@/lib/youtube-api";
+import { LANG_OPTIONS, getChannelLangMap, setChannelLang, seedChannelLangPlan } from "@/lib/channel-langs";
 import { getUploadDefaults, saveUploadDefaults, type UploadDefaults } from "@/lib/youtube-direct";
 import { getSmartLinkPage, setSmartLinkPage, getSmartLinkFormat, setSmartLinkFormat, type SmartLinkPage, type SmartLinkFormat } from "@/lib/smart-link-api";
 import SmartLinkAnalytics from "@/components/SmartLinkAnalytics";
@@ -407,6 +408,7 @@ const SettingsPage = () => {
                 </div>
               )}
               <ChannelClientMap channels={ytChannels} clientIds={clientIds} />
+              <ChannelLangDefaults channels={ytChannels} />
             </div>
           </motion.div>
         </TabsContent>
@@ -648,6 +650,48 @@ export default SettingsPage;
 
 // Shows which connected channel is bound to which Google client, and flags clients
 // carrying more than one channel (a broadcast to all of them drains that client fast).
+// Per-channel default upload language. Saved locally; uploads auto-translate to each
+// channel's language so you never set it by hand. First view seeds the recommended plan.
+function ChannelLangDefaults({ channels }: { channels: YtChannel[] }) {
+  const [map, setMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (channels && channels.length > 0) {
+      seedChannelLangPlan(channels.map(c => ({ id: c.id, title: c.channelTitle })));
+    }
+    setMap(getChannelLangMap());
+  }, [channels]);
+  if (!channels || channels.length === 0) return null;
+
+  const change = (id: string, code: string) => {
+    setChannelLang(id, code);
+    setMap(m => ({ ...m, [id]: code }));
+  };
+
+  return (
+    <div className="mt-6 pt-6 border-t border-border/50">
+      <h3 className="text-sm font-semibold text-foreground mb-1">Per-Channel Default Language</h3>
+      <p className="text-xs text-muted-foreground mb-3">
+        Each channel's uploads auto-translate to this language — set it once, no manual picking per upload.
+      </p>
+      <div className="space-y-2">
+        {channels.map(ch => (
+          <div key={ch.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/40 transition-colors">
+            <span className="text-youtube"><YtIcon /></span>
+            <span className="flex-1 min-w-0 truncate text-sm text-foreground">{ch.channelTitle}</span>
+            <select
+              value={map[ch.id] ?? ""}
+              onChange={e => change(ch.id, e.target.value)}
+              className="text-sm border border-border rounded-md px-2 py-1.5 bg-background text-foreground min-w-[150px]"
+            >
+              {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.name}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ChannelClientMap({ channels, clientIds }: { channels: YtChannel[]; clientIds: string[] }) {
   if (!channels || channels.length === 0) return null;
   const UPLOAD_UNITS = 1600, DAILY = 10000;

@@ -284,15 +284,19 @@ const UploadPage = () => {
     if (activeAccountIds.length === 0) { toast.error("Please select at least one destination."); return; }
     if (!title.trim()) { toast.error("Please enter a video title."); return; }
 
-    // Duplicate-upload guard
+    // Duplicate-upload guard — PER CHANNEL. Re-posting the same file to a new channel is
+    // intentional (spreading one video across channels), so we only warn when a channel you're
+    // uploading to right now ALREADY has this exact file — a genuine accidental repost.
     try {
       const { fileHash } = await import("@/lib/image-compressor");
-      const { findDuplicate } = await import("@/lib/upload-history");
+      const { findDuplicatesForChannels } = await import("@/lib/upload-history");
       const hash = await fileHash(selectedFile);
-      const dup = findDuplicate(hash);
-      if (dup) {
+      const dups = findDuplicatesForChannels(hash, activeAccountIds);
+      if (dups.length > 0) {
+        const names = [...new Set(dups.map(d => d.channelTitle))].join(", ");
+        const when = new Date(dups[0].uploadedAt).toLocaleString();
         const ok = window.confirm(
-          `⚠️ This exact file was already uploaded as "${dup.title}" to ${dup.channelTitle} on ${new Date(dup.uploadedAt).toLocaleString()}.\n\nUpload again anyway?`
+          `⚠️ You already uploaded this exact file to ${names} (${when}).\n\nUpload it there again anyway?`
         );
         if (!ok) return;
       }
@@ -628,6 +632,7 @@ const UploadPage = () => {
                   hash: (selectedFile as any).__hash || '',
                   title: finalTitle,
                   channelTitle: dest.name,
+                  channelKey: dest.id,
                   videoId: res.videoId,
                   uploadedAt: new Date().toISOString(),
                 });

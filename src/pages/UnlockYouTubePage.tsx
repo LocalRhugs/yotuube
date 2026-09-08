@@ -15,21 +15,30 @@ export default function UnlockYouTubePage() {
   const [targetUrl, setTargetUrl] = useState("");
   const [channelId, setChannelId] = useState("");
   const [discordUrl, setDiscordUrl] = useState("");
-  const [actions, setActions] = useState({ subscribe: true, like: true, comment: false, discord: false });
+  const [actions, setActions] = useState({ subscribe: true, like: true, comment: false, discord: false, watch: false });
+  const [watchVideoId, setWatchVideoId] = useState("");
+  const [watchTarget, setWatchTarget] = useState(6); // legacy default; overridden when the "watch" action is on
   const [completed, setCompleted] = useState<Record<string, boolean>>({});
   const [verifying, setVerifying] = useState<Record<string, boolean>>({});
   const [actionsDone, setActionsDone] = useState(false);
   const [bonusClicks, setBonusClicks] = useState(0);
   const [watchedSeconds, setWatchedSeconds] = useState(0);
-  const watchSatisfied = watchedSeconds >= 6;
+  const [isPlaying, setIsPlaying] = useState(false);
+  // Strict watch: creator explicitly required "watch" → countdown only advances while playing.
+  const strictWatch = actions.watch;
+  const heroVideoId = strictWatch && watchVideoId ? watchVideoId : videoId;
+  const watchSatisfied = watchedSeconds >= watchTarget;
   const unlocked = actionsDone && bonusClicks >= 2 && watchSatisfied;
 
-  // Count up to 6 seconds while the page is open (video autoplays muted below)
+  // Countdown. Legacy links tick freely (video autoplays muted). When the creator required
+  // "watch", the countdown only advances while the video is actually PLAYING — pause it and
+  // the timer freezes until they resume.
   useEffect(() => {
     if (watchSatisfied) return;
-    const t = setInterval(() => setWatchedSeconds(s => Math.min(6, s + 1)), 1000);
+    if (strictWatch && !isPlaying) return;
+    const t = setInterval(() => setWatchedSeconds(s => Math.min(watchTarget, s + 1)), 1000);
     return () => clearInterval(t);
-  }, [watchSatisfied]);
+  }, [watchSatisfied, strictWatch, isPlaying, watchTarget]);
 
   // Inject Monetag tag.min.js once + add noindex meta so this URL doesn't get scraped
   useEffect(() => {
@@ -65,17 +74,27 @@ export default function UnlockYouTubePage() {
       const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
       const decoded = JSON.parse(atob(padded));
       if (Array.isArray(decoded) && decoded.length >= 3) {
-        const [mask, cId, tUrl, dUrl] = decoded;
+        const [mask, cId, tUrl] = decoded;
         const fullChannelId = typeof cId === "string" && cId.length === 22 ? `UC${cId}` : cId;
         setChannelId(fullChannelId);
         setTargetUrl(tUrl);
-        if (typeof dUrl === "string") setDiscordUrl(dUrl);
-        setActions({
+        const act = {
           subscribe: (mask & 1) === 1,
           like: (mask & 2) === 2,
           comment: (mask & 4) === 4,
           discord: (mask & 8) === 8,
-        });
+          watch: (mask & 16) === 16,
+        };
+        setActions(act);
+        // Optional fields were appended sequentially (discord, then watch) — walk a cursor.
+        let idx = 3;
+        if (act.discord) { const dUrl = decoded[idx++]; if (typeof dUrl === "string") setDiscordUrl(dUrl); }
+        if (act.watch) {
+          const wId = decoded[idx++];
+          const wSec = decoded[idx++];
+          if (typeof wId === "string") setWatchVideoId(wId);
+          setWatchTarget(Math.max(1, Number(wSec) || 30));
+        }
       }
     } catch (e) {
       console.error("Failed to parse unlock params", e);
@@ -137,10 +156,17 @@ export default function UnlockYouTubePage() {
         </div>
         <Card className="bg-[#1a1a1a] border-white/5 shadow-2xl overflow-hidden">
           <div className="aspect-video w-full bg-black relative group">
-            <YouTubeAutoplayer videoId={videoId} />
-            {!watchSatisfied && (
+            <YouTubeGatePlayer videoId={heroVideoId} strict={strictWatch} onPlayingChange={setIsPlaying} />
+            {!watchSatisfied && strictWatch && !isPlaying && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[2px] pointer-events-none">
+                <div className="px-4 py-2 rounded-full bg-black/80 border border-white/15 text-sm font-semibold text-white flex items-center gap-2">
+                  ▶ Resume the video to continue · {watchTarget - watchedSeconds}s left
+                </div>
+              </div>
+            )}
+            {!watchSatisfied && (!strictWatch || isPlaying) && (
               <div className="absolute bottom-2 right-2 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs font-semibold text-white pointer-events-none">
-                Watching... {6 - watchedSeconds}s
+                Watching... {watchTarget - watchedSeconds}s
               </div>
             )}
             {watchSatisfied && (
@@ -244,7 +270,15 @@ function ActionBtn({ label, icon, colorBg, done, loading, onClick }: {
   );
 }
 
-function YouTubeAutoplayer({ videoId }: { videoId: string }) {
+/**
+ * Gate player. In legacy mode (strict=false) it autoplays muted and force-resumes on pause
+ * so the fixed countdown always ticks. In strict mode (the creator required "watch") it gives
+ * the viewer real controls, does NOT force-resume, and reports play/pause up so the parent can
+ * freeze the countdown and prompt them to resume.
+ */
+function YouTubeGatePlayer({ videoId, strict, onPlayingChange }: {
+  videoId: string; strict?: boolean; onPlayingChange?: (playing: boolean) => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
 
@@ -269,15 +303,19 @@ function YouTubeAutoplayer({ videoId }: { videoId: string }) {
       playerRef.current = new window.YT.Player(containerRef.current, {
         videoId,
         playerVars: {
-          autoplay: 1, mute: 1, controls: 0, rel: 0, showinfo: 0,
-          modestbranding: 1, playsinline: 1, loop: 1, playlist: videoId,
-          disablekb: 1, fs: 0, iv_load_policy: 3,
+          autoplay: 1, mute: 1, controls: strict ? 1 : 0, rel: 0, showinfo: 0,
+          modestbranding: 1, playsinline: 1,
+          loop: strict ? 0 : 1, playlist: videoId,
+          disablekb: strict ? 0 : 1, fs: 0, iv_load_policy: 3,
         },
         events: {
           onReady: (e: any) => { try { e.target.mute(); e.target.playVideo(); } catch {} },
           onStateChange: (e: any) => {
-            // 2 = paused, 0 = ended → force resume
-            if (e.data === 2 || e.data === 0) {
+            // YT states: 1 = playing, 2 = paused, 0 = ended, 3 = buffering
+            if (strict) {
+              onPlayingChange?.(e.data === 1);
+            } else if (e.data === 2 || e.data === 0) {
+              // legacy: never let it stop
               try { e.target.seekTo(e.data === 0 ? 0 : e.target.getCurrentTime(), true); e.target.playVideo(); } catch {}
             }
           },
@@ -289,7 +327,7 @@ function YouTubeAutoplayer({ videoId }: { videoId: string }) {
       cancelled = true;
       try { playerRef.current?.destroy?.(); } catch {}
     };
-  }, [videoId]);
+  }, [videoId, strict]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 }

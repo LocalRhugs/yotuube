@@ -18,7 +18,7 @@ import {
   uploadThumbnail,
   type StoredYouTubeChannel,
 } from "@/lib/youtube-direct";
-import { generateYouTubeSmartLink, translateText } from "@/lib/smart-link-api";
+import { generateYouTubeSmartLink, translateText, parseYouTubeVideoId } from "@/lib/smart-link-api";
 import { TranslationModelSelect } from "@/components/TranslationModelSelect";
 
 type PrivacyStatus = "public" | "private" | "unlisted";
@@ -244,6 +244,8 @@ const BulkUploadPage = () => {
               channelId: channelData.channelId,
               targetUrl: defaults.socialUnlockTargetUrl,
               discordUrl: defaults.socialUnlockDiscordUrl,
+              watchVideoId: parseYouTubeVideoId(defaults.socialUnlockWatchVideoUrl || ""),
+              watchSeconds: defaults.socialUnlockWatchSeconds,
               actions: defaults.socialUnlockActions || { subscribe: true, like: true, comment: false },
             }, true);
             if (slRes.success && slRes.smartLink) {

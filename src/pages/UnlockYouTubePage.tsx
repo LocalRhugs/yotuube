@@ -30,6 +30,13 @@ export default function UnlockYouTubePage() {
   const watchSatisfied = watchedSeconds >= watchTarget;
   const unlocked = actionsDone && bonusClicks >= 2 && watchSatisfied;
 
+  // If no social action (subscribe/like/comment/discord) is required, there's nothing to
+  // "complete" — mark that step done so a watch-only (or bonus-only) gate can still unlock.
+  useEffect(() => {
+    const anySocial = actions.subscribe || actions.like || actions.comment || actions.discord;
+    if (!anySocial) setActionsDone(true);
+  }, [actions]);
+
   // Countdown. Legacy links tick freely (video autoplays muted). When the creator required
   // "watch", the countdown only advances while the video is actually PLAYING — pause it and
   // the timer freezes until they resume.

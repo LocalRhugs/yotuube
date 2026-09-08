@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { Calendar, Clock, CheckCircle2, Lock, ThumbsUp, MessageSquare, Youtube, ArrowRight, Loader2, Download } from "lucide-react";
+import { Calendar, Clock, CheckCircle2, Lock, ThumbsUp, MessageSquare, Youtube, ArrowRight, Loader2, Download, Play } from "lucide-react";
 import { posts } from "@/content/posts";
 
 declare global { interface Window { YT?: any; onYouTubeIframeAPIReady?: () => void; } }
@@ -127,6 +127,14 @@ export default function ArticleUnlockPage() {
     return () => clearInterval(t);
   }, [watchSatisfied, strictWatch, isPlaying, watchTarget]);
 
+  const watchSubtitle = watchSatisfied
+    ? "Watched — thanks!"
+    : isPlaying
+      ? `Keep watching · ${watchTarget - watchedSeconds}s left`
+      : watchedSeconds > 0
+        ? `Paused — press play to continue · ${watchTarget - watchedSeconds}s left`
+        : `Press play to start · ${watchTarget}s`;
+
   const verify = (action: string, url: string) => {
     window.open(url, "_blank");
     setVerifying(v => ({ ...v, [action]: true }));
@@ -211,20 +219,16 @@ export default function ArticleUnlockPage() {
 
             <div className="relative mb-4 aspect-video overflow-hidden rounded-xl bg-background">
               {heroVideoId ? <YouTubeGatePlayer videoId={heroVideoId} strict={strictWatch} onPlayingChange={setIsPlaying} /> : null}
-              {!watchSatisfied && strictWatch && !isPlaying && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[2px] pointer-events-none">
-                  <span className="px-3 py-1.5 rounded-full bg-black/80 border border-white/15 text-xs font-semibold text-white">
-                    ▶ Resume the video · {watchTarget - watchedSeconds}s left
-                  </span>
+              {/* Strict mode surfaces status in the Watch Video row below; legacy shows a pill. */}
+              {!strictWatch && (
+                <div className="absolute bottom-2 right-2 rounded-full border border-border bg-background/80 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur-md pointer-events-none">
+                  {watchSatisfied ? (
+                    <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-primary" /> Watch done</span>
+                  ) : (
+                    <span>Watching... {watchTarget - watchedSeconds}s</span>
+                  )}
                 </div>
               )}
-              <div className="absolute bottom-2 right-2 rounded-full border border-border bg-background/80 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur-md pointer-events-none">
-                {watchSatisfied ? (
-                  <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-primary" /> Watch done</span>
-                ) : (
-                  <span>Watching... {watchTarget - watchedSeconds}s</span>
-                )}
-              </div>
             </div>
 
             <div className="space-y-3">
@@ -250,6 +254,22 @@ export default function ArticleUnlockPage() {
                   tone="neutral"
                   done={completed.discord} loading={verifying.discord}
                   onClick={() => verify("discord", discordUrl || "https://discord.com")} />
+              )}
+              {strictWatch && (
+                <div className={`flex h-14 w-full items-center gap-3 rounded-xl border px-3 ${
+                  watchSatisfied ? "border-primary/50 bg-primary/10" : "border-border bg-muted/30"
+                }`}>
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${watchSatisfied ? "bg-primary" : "bg-red-600"}`}>
+                    {watchSatisfied ? <CheckCircle2 className="h-4 w-4 text-white" /> : <Play className="h-4 w-4 fill-white text-white" />}
+                  </span>
+                  <span className="min-w-0 flex-1 text-center">
+                    <span className="block text-sm font-semibold leading-tight text-foreground">Watch Video</span>
+                    <span className="block text-xs text-muted-foreground">{watchSubtitle}</span>
+                  </span>
+                  {watchSatisfied ? <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
+                    : isPlaying ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
+                    : <Play className="h-4 w-4 shrink-0 fill-muted-foreground text-muted-foreground" />}
+                </div>
               )}
             </div>
 
@@ -335,13 +355,16 @@ function YouTubeGatePlayer({ videoId, strict, onPlayingChange }: {
       playerRef.current = new window.YT.Player(containerRef.current, {
         videoId,
         playerVars: {
-          autoplay: 1, mute: 1, controls: strict ? 1 : 0, rel: 0, showinfo: 0,
+          // Strict "watch" mode: NO autoplay + controls + sound — the viewer presses play.
+          autoplay: strict ? 0 : 1, mute: strict ? 0 : 1, controls: strict ? 1 : 0, rel: 0, showinfo: 0,
           modestbranding: 1, playsinline: 1,
           loop: strict ? 0 : 1, playlist: videoId,
           disablekb: strict ? 0 : 1, fs: 0, iv_load_policy: 3,
         },
         events: {
-          onReady: (e: any) => { try { e.target.mute(); e.target.playVideo(); } catch {} },
+          onReady: (e: any) => {
+            if (!strict) { try { e.target.mute(); e.target.playVideo(); } catch {} }
+          },
           onStateChange: (e: any) => {
             // 1 = playing, 2 = paused, 0 = ended
             if (strict) {

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { getFacebookPages, getInstagramAccount } from "@/lib/facebook-api";
 import { getYouTubeChannels } from "@/lib/youtube-api";
 import { seedChannelLangPlan, getChannelLang, setChannelLang } from "@/lib/channel-langs";
+import { seedUploadModePlan, getUploadMode, setUploadMode, MODE_OPTIONS, type UploadMode } from "@/lib/channel-upload-mode";
 import { publishToFacebook, publishToInstagram, uploadToYouTube } from "@/lib/publish-api";
 import { supabase } from "@/integrations/supabase/client";
 import VideoPreview from "@/components/VideoPreview";
@@ -86,7 +87,6 @@ const UploadPage = () => {
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [isShort, setIsShort] = useState(false);
-  const [dualUpload, setDualUpload] = useState(false);
   const [customShortsDuration, setCustomShortsDuration] = useState(60);
   const [allowComments, setAllowComments] = useState(true);
   const [allowRatings, setAllowRatings] = useState(true);
@@ -114,6 +114,8 @@ const UploadPage = () => {
   // Per-channel language assignment. Key = destination id, value = lang code ('' or absent = original/English).
   // One upload per channel, in its assigned language.
   const [channelLangs, setChannelLangs] = useState<Record<string, string>>({});
+  // Per-channel upload mode ('both' | 'video' | 'short'). Key = destination id.
+  const [channelModes, setChannelModes] = useState<Record<string, UploadMode>>({});
 
   // AI states
   const [aiLoading, setAiLoading] = useState<string | null>(null);
@@ -239,9 +241,15 @@ const UploadPage = () => {
       try {
         const yt = dests.filter(d => d.platform === 'youtube' && d.channelTokenId);
         seedChannelLangPlan(yt.map(d => ({ id: d.channelTokenId as string, title: d.name })));
+        seedUploadModePlan(yt.map(d => ({ id: d.channelTokenId as string, title: d.name })));
         const init: Record<string, string> = {};
-        for (const d of yt) init[d.id] = getChannelLang(d.channelTokenId as string);
+        const initModes: Record<string, UploadMode> = {};
+        for (const d of yt) {
+          init[d.id] = getChannelLang(d.channelTokenId as string);
+          initModes[d.id] = getUploadMode(d.channelTokenId as string);
+        }
         setChannelLangs(init);
+        setChannelModes(initModes);
       } catch { /* ignore */ }
     };
     loadDestinations();
@@ -507,8 +515,16 @@ const UploadPage = () => {
           }
           // Use direct upload if we have an access token
           if (dest.accessToken) {
-            const finalTitle = (isShort && videoDuration && videoDuration <= 60) ? `${title} #Shorts` : title;
-            const finalDesc = (isShort && videoDuration && videoDuration <= 60) ? `${description}\n\n#Shorts` : description;
+            // Per-channel upload mode: 'both' (video+short), 'video' (long only), 'short' (short only).
+            const uploadMode: UploadMode = channelModes[dest.id] || 'both';
+            const hasLongSource = !!(videoDuration && videoDuration > 60);
+            const doMainUpload = uploadMode !== 'short' || !hasLongSource; // skip long only when a long source exists AND mode is short-only
+            const doShort = (uploadMode === 'both' || uploadMode === 'short') && hasLongSource;
+            let res: { success: boolean; videoId?: string; error?: string } = { success: false };
+            if (doMainUpload) {
+            const asShort = (isShort && videoDuration && videoDuration <= 60) || uploadMode === 'short';
+            const finalTitle = asShort ? `${title} #Shorts` : title;
+            const finalDesc = asShort ? `${description}\n\n#Shorts` : description;
             const ytUploadOnce = () => uploadVideoToYouTube(dest.accessToken!, selectedFile, {
               title: finalTitle, description: finalDesc,
               tags: selectedTags, categoryId: category, privacyStatus: privacy,
@@ -519,7 +535,7 @@ const UploadPage = () => {
               recordingDate: recordingDate || undefined,
               notifySubscribers,
             });
-            let res = await ytUploadOnce();
+            res = await ytUploadOnce();
             if (!res.success) {
               setUploadProgress(`Retrying ${dest.name} in 5s...`);
               await new Promise(r => setTimeout(r, 5000));
@@ -649,9 +665,10 @@ const UploadPage = () => {
                 });
               } catch {}
             }
+            } // end doMainUpload
 
-            // Dual upload as Shorts
-            if (dualUpload && res.success && videoDuration && videoDuration > 60) {
+            // Shorts upload — for 'both' (needs the long upload to have succeeded) or 'short' (always).
+            if (doShort && (uploadMode === 'short' || res.success)) {
               try {
                 // Reuse the single pre-encoded Short (encoded once, shared across all channels).
                 const shortsFile = await getShortsFile();
@@ -923,30 +940,39 @@ const UploadPage = () => {
           )}
           {videoDuration > 60 && (
             <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl space-y-3">
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input type="checkbox" checked={dualUpload} onChange={(e) => setDualUpload(e.target.checked)}
-                  disabled={uploading} className="rounded w-4 h-4 mt-0.5" />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-semibold text-foreground">Upload to Both Video & Shorts</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Upload the full {Math.round(videoDuration)}s video AND auto-create a vertical Shorts version.
-                  </p>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <span className="text-sm font-semibold text-foreground">Video &amp; Shorts — set per channel</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Every YouTube channel below has its own <strong>Video + Short / Video only / Short only</strong> dropdown, so you can post long-form to your main channel and Shorts-only to the others. Quick-set all selected channels:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {MODE_OPTIONS.map(m => (
+                  <button key={m.value} type="button" disabled={uploading}
+                    onClick={() => {
+                      const yt = destinations.filter(d => d.platform === 'youtube' && selectedAccounts.includes(d.id));
+                      setChannelModes(prev => {
+                        const next = { ...prev };
+                        for (const d of yt) { next[d.id] = m.value; if (d.channelTokenId) setUploadMode(d.channelTokenId, m.value); }
+                        return next;
+                      });
+                    }}
+                    className="text-xs px-3 py-1.5 rounded-lg border border-border hover:border-primary text-foreground transition-colors">
+                    All: {m.label}
+                  </button>
+                ))}
+              </div>
+              <div className="p-3 bg-card rounded-lg border border-border">
+                <label className="text-xs font-semibold mb-2 block text-foreground">Shorts Duration (seconds)</label>
+                <div className="flex items-center gap-3">
+                  <input type="range" min="15" max="60" step="1" value={customShortsDuration}
+                    onChange={(e) => setCustomShortsDuration(Number(e.target.value))}
+                    disabled={uploading} className="flex-1" />
+                  <span className="text-sm font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">{customShortsDuration}s</span>
                 </div>
-              </label>
-              {dualUpload && (
-                <div className="pl-7 p-3 bg-card rounded-lg border border-border">
-                  <label className="text-xs font-semibold mb-2 block text-foreground">Shorts Duration (seconds)</label>
-                  <div className="flex items-center gap-3">
-                    <input type="range" min="15" max="60" step="1" value={customShortsDuration}
-                      onChange={(e) => setCustomShortsDuration(Number(e.target.value))}
-                      disabled={uploading} className="flex-1" />
-                    <span className="text-sm font-bold text-primary bg-primary/10 px-2 py-1 rounded-full">{customShortsDuration}s</span>
-                  </div>
-                </div>
-              )}
+                <p className="text-[11px] text-muted-foreground mt-2">Used when a channel is set to "Video + Short" or "Short only".</p>
+              </div>
             </div>
           )}
         </motion.div>
@@ -1214,6 +1240,21 @@ const UploadPage = () => {
                 </div>
                 {dest.platform === 'youtube' && selectedAccounts.includes(dest.id) && (
                   <select
+                    value={channelModes[dest.id] || 'both'}
+                    onChange={e => {
+                      const mode = e.target.value as UploadMode;
+                      setChannelModes(prev => ({ ...prev, [dest.id]: mode }));
+                      if (dest.channelTokenId) setUploadMode(dest.channelTokenId, mode);
+                    }}
+                    disabled={uploading}
+                    title="What to post to this channel (saved as its default)"
+                    className="text-xs border border-border rounded px-1.5 py-1 bg-background text-foreground"
+                  >
+                    {MODE_OPTIONS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                  </select>
+                )}
+                {dest.platform === 'youtube' && selectedAccounts.includes(dest.id) && (
+                  <select
                     value={channelLangs[dest.id] || ''}
                     onChange={e => {
                       const code = e.target.value;
@@ -1263,7 +1304,7 @@ const UploadPage = () => {
               <UploadIcon className="w-4 h-4 mr-2" />
               Upload to {selectedAccounts.length} Destination{selectedAccounts.length !== 1 ? "s" : ""}
               {repeatCount > 1 ? ` × ${repeatCount}` : ""}
-              {dualUpload ? " + Shorts" : ""}
+              {(videoDuration && videoDuration > 60 && destinations.some(d => d.platform === 'youtube' && selectedAccounts.includes(d.id) && (channelModes[d.id] || 'both') !== 'video')) ? " + Shorts" : ""}
             </Button>
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-foreground whitespace-nowrap">Repeat:</label>

@@ -112,6 +112,10 @@ export async function getYouTubeChannelAnalytics(channelTokenId: string) {
   return invokeYouTubeAuth({ action: 'get_channel_analytics', channelTokenId });
 }
 
+export async function getAllChannelStats() {
+  return invokeYouTubeAuth({ action: 'get_all_channel_stats' });
+}
+
 export async function validateYouTubeConfig(redirectUri: string) {
   return invokeYouTubeAuth({ action: 'validate', redirectUri });
 }

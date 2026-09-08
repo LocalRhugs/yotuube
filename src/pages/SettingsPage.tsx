@@ -543,6 +543,7 @@ const SettingsPage = () => {
                           { key: "like" as const, label: "Require Like" },
                           { key: "comment" as const, label: "Require Comment" },
                           { key: "discord" as const, label: "Require Join Discord" },
+                          { key: "watch" as const, label: "Require Watch Video" },
                         ].map(action => (
                           <label key={action.key} className="flex items-center gap-3 cursor-pointer p-2 rounded hover:bg-muted/50 transition-colors">
                             <input type="checkbox"
@@ -569,6 +570,29 @@ const SettingsPage = () => {
                           placeholder="https://discord.gg/yourserver"
                         />
                         <p className="text-xs text-muted-foreground mt-1">The invite viewers must join to unlock (used by the Join Discord step).</p>
+                      </div>
+                    )}
+                    {defaults.socialUnlockActions?.watch && (
+                      <div className="space-y-3 p-3 rounded-lg border border-border bg-muted/30">
+                        <div>
+                          <label className="text-sm font-medium text-foreground mb-1.5 block">Watch Video URL</label>
+                          <Input
+                            value={defaults.socialUnlockWatchVideoUrl || ""}
+                            onChange={e => setDefaults(d => ({ ...d, socialUnlockWatchVideoUrl: e.target.value }))}
+                            placeholder="Leave blank to use the uploaded video, or paste a YouTube link"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">The video viewers must watch. Blank = they watch the video you're uploading.</p>
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium text-foreground mb-1.5 block">Required Watch Time (seconds)</label>
+                          <Input
+                            type="number" min={1} max={600}
+                            value={defaults.socialUnlockWatchSeconds ?? 30}
+                            onChange={e => setDefaults(d => ({ ...d, socialUnlockWatchSeconds: Math.max(1, Math.min(600, Number(e.target.value) || 30)) }))}
+                            placeholder="30"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">Countdown pauses if the viewer pauses the video, and resumes when they play it again.</p>
+                        </div>
                       </div>
                     )}
                     <div className="p-3 bg-muted rounded-lg">

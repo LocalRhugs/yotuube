@@ -3,7 +3,8 @@ import { Eye, Users, Film, Loader2, RefreshCw, TrendingUp, TrendingDown, Minus, 
 import { Button } from "@/components/ui/button";
 import StatCard from "@/components/StatCard";
 import { useEffect, useMemo, useState } from "react";
-import { getAllChannelStats, getChannelSnapshots } from "@/lib/youtube-api";
+import { getAllChannelStats, getChannelSnapshots, getRecentPerformance } from "@/lib/youtube-api";
+import { Smartphone, Film as FilmIcon } from "lucide-react";
 
 interface ChannelStat {
   id: string; channelId: string; title: string;
@@ -11,6 +12,12 @@ interface ChannelStat {
   hiddenSubs?: boolean; thumbnail?: string;
 }
 interface Snap { channel_id: string; title: string; subs: number; views: number; videos: number; day: string; }
+interface Perf {
+  id: string; channelId: string; title: string;
+  recentCount: number; avgViews: number;
+  shortsCount: number; shortsAvg: number; longCount: number; longAvg: number;
+  best: { id: string; title: string; views: number; isShort: boolean } | null;
+}
 
 const fmt = (n: number) => {
   if (!n || isNaN(n)) return "0";
@@ -25,15 +32,21 @@ type Period = 7 | 30 | 3650;
 const AnalyticsPage = () => {
   const [channels, setChannels] = useState<ChannelStat[]>([]);
   const [snaps, setSnaps] = useState<Snap[]>([]);
+  const [perf, setPerf] = useState<Perf[]>([]);
   const [loading, setLoading] = useState(true);
+  const [perfLoading, setPerfLoading] = useState(true);
   const [period, setPeriod] = useState<Period>(7);
 
   const load = async () => {
-    setLoading(true);
+    setLoading(true); setPerfLoading(true);
     const [statsRes, snapRes] = await Promise.all([getAllChannelStats(), getChannelSnapshots()]);
     if (statsRes.success && statsRes.data?.channels) setChannels(statsRes.data.channels);
     if (snapRes.success && snapRes.data?.snapshots) setSnaps(snapRes.data.snapshots);
     setLoading(false);
+    // Recent-upload performance is a heavier call — load it after the fast stuff paints.
+    const perfRes = await getRecentPerformance();
+    if (perfRes.success && perfRes.data?.channels) setPerf(perfRes.data.channels);
+    setPerfLoading(false);
   };
   useEffect(() => { load(); }, []);
 
@@ -160,6 +173,53 @@ const AnalyticsPage = () => {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Recent uploads performance — which format & which channels actually pull views */}
+      <div className="bg-card rounded-xl shadow-card border border-border/50 overflow-hidden">
+        <div className="px-5 py-4 border-b border-border/50">
+          <h3 className="font-display font-semibold text-foreground">Recent Uploads Performance</h3>
+          <p className="text-xs text-muted-foreground">Last ~20 uploads per channel · avg views + Shorts vs Long-form</p>
+        </div>
+        {perfLoading ? (
+          <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+        ) : perf.length === 0 ? (
+          <p className="px-5 py-10 text-center text-sm text-muted-foreground">No recent uploads found.</p>
+        ) : (
+          <div className="divide-y divide-border/40">
+            {[...perf].sort((a, b) => b.avgViews - a.avgViews).map(p => {
+              const winner = p.shortsCount && p.longCount
+                ? (p.shortsAvg > p.longAvg ? "short" : p.longAvg > p.shortsAvg ? "long" : "tie")
+                : p.shortsCount ? "short" : p.longCount ? "long" : "none";
+              return (
+                <div key={p.id} className="px-5 py-3 flex items-center gap-4 flex-wrap sm:flex-nowrap">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground truncate">{p.title}</p>
+                    <p className="text-xs text-muted-foreground">{p.recentCount} recent · <span className="text-foreground font-semibold">{fmt(p.avgViews)}</span> avg views/vid</p>
+                  </div>
+                  <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg ${winner === "short" ? "bg-red-500/10 text-red-400 ring-1 ring-red-500/30" : "text-muted-foreground"}`}>
+                    <Smartphone className="w-3.5 h-3.5" /> {fmt(p.shortsAvg)} <span className="opacity-60">({p.shortsCount})</span>
+                  </div>
+                  <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg ${winner === "long" ? "bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/30" : "text-muted-foreground"}`}>
+                    <FilmIcon className="w-3.5 h-3.5" /> {fmt(p.longAvg)} <span className="opacity-60">({p.longCount})</span>
+                  </div>
+                  <div className="hidden lg:block w-64 min-w-0">
+                    {p.best && (
+                      <p className="text-xs text-muted-foreground truncate" title={p.best.title}>
+                        🏆 {fmt(p.best.views)} · {p.best.isShort ? "Short" : "Long"} — {p.best.title}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        <div className="px-5 py-3 border-t border-border/40 flex items-center gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1"><Smartphone className="w-3 h-3 text-red-400" /> Shorts avg (count)</span>
+          <span className="flex items-center gap-1"><FilmIcon className="w-3 h-3 text-blue-400" /> Long avg (count)</span>
+          <span>· highlighted = the format winning on that channel</span>
+        </div>
       </div>
 
       {!haveHistory && !loading && channels.length > 0 && (

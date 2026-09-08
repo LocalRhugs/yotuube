@@ -113,6 +113,12 @@ export default function ArticleUnlockPage() {
   const watchSatisfied = watchedSeconds >= watchTarget;
   const unlocked = actionsDone && watchSatisfied;
 
+  // No social action required → nothing to "complete", so a watch-only gate can still unlock.
+  useEffect(() => {
+    const anySocial = actions.subscribe || actions.like || actions.comment || actions.discord;
+    if (!anySocial) setActionsDone(true);
+  }, [actions]);
+
   // Legacy links tick freely; a required "watch" only advances while the video is PLAYING.
   useEffect(() => {
     if (watchSatisfied) return;

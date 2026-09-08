@@ -57,12 +57,14 @@ export default function ArticleUnlockPage() {
   const [searchParams] = useSearchParams();
 
   // Decode payload (same shape as /u/:videoId)
-  const { videoId, channelId, targetUrl, actions, discordUrl } = useMemo(() => {
+  const { videoId, channelId, targetUrl, actions, discordUrl, watchVideoId, watchTarget } = useMemo(() => {
     let videoId = searchParams.get("v") || id;
     let channelId = "";
     let targetUrl = "";
     let discordUrl = "";
-    let actions = { subscribe: true, like: true, comment: false, discord: false };
+    let watchVideoId = "";
+    let watchTarget = 6; // legacy default; overridden when the "watch" action is required
+    let actions = { subscribe: true, like: true, comment: false, discord: false, watch: false };
     try {
       const d = searchParams.get("d");
       if (d) {
@@ -70,22 +72,31 @@ export default function ArticleUnlockPage() {
         const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
         const decoded = JSON.parse(atob(padded));
         if (Array.isArray(decoded) && decoded.length >= 3) {
-          const [mask, cId, tUrl, dUrl] = decoded;
+          const [mask, cId, tUrl] = decoded;
           channelId = typeof cId === "string" && cId.length === 22 ? `UC${cId}` : cId;
           targetUrl = tUrl;
-          if (typeof dUrl === "string") discordUrl = dUrl;
           actions = {
             subscribe: (mask & 1) === 1,
             like: (mask & 2) === 2,
             comment: (mask & 4) === 4,
             discord: (mask & 8) === 8,
+            watch: (mask & 16) === 16,
           };
+          // Optional trailing fields appended sequentially (discord, then watch) — walk a cursor.
+          let idx = 3;
+          if (actions.discord) { const dUrl = decoded[idx++]; if (typeof dUrl === "string") discordUrl = dUrl; }
+          if (actions.watch) {
+            const wId = decoded[idx++];
+            const wSec = decoded[idx++];
+            if (typeof wId === "string") watchVideoId = wId;
+            watchTarget = Math.max(1, Number(wSec) || 30);
+          }
         }
       }
     } catch (e) {
       console.error("Failed to parse article unlock params", e);
     }
-    return { videoId, channelId, targetUrl, actions, discordUrl };
+    return { videoId, channelId, targetUrl, actions, discordUrl, watchVideoId, watchTarget };
   }, [id, searchParams]);
 
   // Deterministically pick an existing post as the host article
@@ -96,14 +107,19 @@ export default function ArticleUnlockPage() {
   const [verifying, setVerifying] = useState<Record<string, boolean>>({});
   const [actionsDone, setActionsDone] = useState(false);
   const [watchedSeconds, setWatchedSeconds] = useState(0);
-  const watchSatisfied = watchedSeconds >= 6;
+  const [isPlaying, setIsPlaying] = useState(false);
+  const strictWatch = actions.watch;
+  const heroVideoId = strictWatch && watchVideoId ? watchVideoId : videoId;
+  const watchSatisfied = watchedSeconds >= watchTarget;
   const unlocked = actionsDone && watchSatisfied;
 
+  // Legacy links tick freely; a required "watch" only advances while the video is PLAYING.
   useEffect(() => {
     if (watchSatisfied) return;
-    const t = setInterval(() => setWatchedSeconds(s => Math.min(6, s + 1)), 1000);
+    if (strictWatch && !isPlaying) return;
+    const t = setInterval(() => setWatchedSeconds(s => Math.min(watchTarget, s + 1)), 1000);
     return () => clearInterval(t);
-  }, [watchSatisfied]);
+  }, [watchSatisfied, strictWatch, isPlaying, watchTarget]);
 
   const verify = (action: string, url: string) => {
     window.open(url, "_blank");
@@ -188,12 +204,19 @@ export default function ArticleUnlockPage() {
             </div>
 
             <div className="relative mb-4 aspect-video overflow-hidden rounded-xl bg-background">
-              {videoId ? <YouTubeAutoplayer videoId={videoId} /> : null}
+              {heroVideoId ? <YouTubeGatePlayer videoId={heroVideoId} strict={strictWatch} onPlayingChange={setIsPlaying} /> : null}
+              {!watchSatisfied && strictWatch && !isPlaying && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[2px] pointer-events-none">
+                  <span className="px-3 py-1.5 rounded-full bg-black/80 border border-white/15 text-xs font-semibold text-white">
+                    ▶ Resume the video · {watchTarget - watchedSeconds}s left
+                  </span>
+                </div>
+              )}
               <div className="absolute bottom-2 right-2 rounded-full border border-border bg-background/80 px-3 py-1 text-xs font-semibold text-foreground backdrop-blur-md pointer-events-none">
                 {watchSatisfied ? (
                   <span className="inline-flex items-center gap-1"><CheckCircle2 className="h-3 w-3 text-primary" /> Watch done</span>
                 ) : (
-                  <span>Watching... {6 - watchedSeconds}s</span>
+                  <span>Watching... {watchTarget - watchedSeconds}s</span>
                 )}
               </div>
             </div>
@@ -279,7 +302,9 @@ function ActionBtn({ label, icon, tone, done, loading, onClick }: {
   );
 }
 
-function YouTubeAutoplayer({ videoId }: { videoId: string }) {
+function YouTubeGatePlayer({ videoId, strict, onPlayingChange }: {
+  videoId: string; strict?: boolean; onPlayingChange?: (playing: boolean) => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
 
@@ -304,14 +329,18 @@ function YouTubeAutoplayer({ videoId }: { videoId: string }) {
       playerRef.current = new window.YT.Player(containerRef.current, {
         videoId,
         playerVars: {
-          autoplay: 1, mute: 1, controls: 0, rel: 0, showinfo: 0,
-          modestbranding: 1, playsinline: 1, loop: 1, playlist: videoId,
-          disablekb: 1, fs: 0, iv_load_policy: 3,
+          autoplay: 1, mute: 1, controls: strict ? 1 : 0, rel: 0, showinfo: 0,
+          modestbranding: 1, playsinline: 1,
+          loop: strict ? 0 : 1, playlist: videoId,
+          disablekb: strict ? 0 : 1, fs: 0, iv_load_policy: 3,
         },
         events: {
           onReady: (e: any) => { try { e.target.mute(); e.target.playVideo(); } catch {} },
           onStateChange: (e: any) => {
-            if (e.data === 2 || e.data === 0) {
+            // 1 = playing, 2 = paused, 0 = ended
+            if (strict) {
+              onPlayingChange?.(e.data === 1);
+            } else if (e.data === 2 || e.data === 0) {
               try { e.target.seekTo(e.data === 0 ? 0 : e.target.getCurrentTime(), true); e.target.playVideo(); } catch {}
             }
           },
@@ -323,7 +352,7 @@ function YouTubeAutoplayer({ videoId }: { videoId: string }) {
       cancelled = true;
       try { playerRef.current?.destroy?.(); } catch {}
     };
-  }, [videoId]);
+  }, [videoId, strict]);
 
   return <div ref={containerRef} className="w-full h-full" />;
 }

@@ -15,6 +15,10 @@ import { getFacebookPages, getInstagramAccount } from "@/lib/facebook-api";
 import { getYouTubeChannels } from "@/lib/youtube-api";
 import { seedChannelLangPlan, getChannelLang, setChannelLang } from "@/lib/channel-langs";
 import { seedUploadModePlan, getUploadMode, setUploadMode, MODE_OPTIONS, type UploadMode } from "@/lib/channel-upload-mode";
+import { getKeyGames, type KeyGame } from "@/lib/key-games";
+
+// Base URL of the store that hosts /unlock + /scripts (change if your store lives elsewhere).
+const STORE_BASE = "https://combowick-keys.vercel.app";
 import { publishToFacebook, publishToInstagram, uploadToYouTube } from "@/lib/publish-api";
 import { supabase } from "@/integrations/supabase/client";
 import VideoPreview from "@/components/VideoPreview";
@@ -116,6 +120,13 @@ const UploadPage = () => {
   const [channelLangs, setChannelLangs] = useState<Record<string, string>>({});
   // Per-channel upload mode ('both' | 'video' | 'short'). Key = destination id.
   const [channelModes, setChannelModes] = useState<Record<string, UploadMode>>({});
+
+  // Per-video script unlock: pick the game (from the key system) → smart-link points at the
+  // store's /unlock?u=<universe>, so the gate leads into Linkvertise → reveals THAT game's script.
+  const [keyGames, setKeyGames] = useState<KeyGame[]>([]);
+  const [unlockGameSearch, setUnlockGameSearch] = useState("");
+  const [unlockTarget, setUnlockTarget] = useState(""); // overrides the default social-unlock target for this upload
+  useEffect(() => { getKeyGames().then(setKeyGames).catch(() => {}); }, []);
 
   // AI states
   const [aiLoading, setAiLoading] = useState<string | null>(null);
@@ -481,7 +492,7 @@ const UploadPage = () => {
                   postId: res.data.id,
                   pageId: dest.pageId || '',
                   platform: 'instagram',
-                  targetUrl: defaults.socialUnlockTargetUrl,
+                  targetUrl: unlockTarget || defaults.socialUnlockTargetUrl,
                   pageName: dest.name,
                   postUrl: '',
                   actions: { follow: true, like: true, comment: false },
@@ -556,7 +567,7 @@ const UploadPage = () => {
                   const slRes = await generateYouTubeSmartLink({
                     videoId: res.videoId,
                     channelId: actualChannelId,
-                    targetUrl: defaults.socialUnlockTargetUrl,
+                    targetUrl: unlockTarget || defaults.socialUnlockTargetUrl,
                     discordUrl: defaults.socialUnlockDiscordUrl,
                     watchVideoId: parseYouTubeVideoId(defaults.socialUnlockWatchVideoUrl || ""),
                     watchSeconds: defaults.socialUnlockWatchSeconds,
@@ -695,7 +706,7 @@ const UploadPage = () => {
                       const slRes = await generateYouTubeSmartLink({
                         videoId: shortsRes.videoId,
                         channelId: dest.channelId,
-                        targetUrl: defaults.socialUnlockTargetUrl,
+                        targetUrl: unlockTarget || defaults.socialUnlockTargetUrl,
                         discordUrl: defaults.socialUnlockDiscordUrl,
                         watchVideoId: parseYouTubeVideoId(defaults.socialUnlockWatchVideoUrl || ""),
                         watchSeconds: defaults.socialUnlockWatchSeconds,
@@ -977,6 +988,53 @@ const UploadPage = () => {
           )}
         </motion.div>
       )}
+
+      {/* Per-video Script Unlock — points the smart link at the store's /unlock for this game */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.09 }}
+        className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-4">
+        <div>
+          <h2 className="font-display font-semibold text-foreground text-lg">🔓 Script Unlock <span className="text-xs font-normal text-muted-foreground">(this video)</span></h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Pick the game — the smart link sends viewers through Linkvertise to unlock <em>that game's</em> script on the store. Leave blank to use your default Social-Unlock target.
+          </p>
+        </div>
+        <Input
+          placeholder={keyGames.length ? "Search games from your key system…" : "Loading games…"}
+          value={unlockGameSearch}
+          onChange={e => setUnlockGameSearch(e.target.value)}
+          disabled={uploading}
+        />
+        {unlockGameSearch && (
+          <div className="max-h-48 overflow-y-auto rounded-lg border border-border divide-y divide-border/40">
+            {keyGames
+              .filter(g => g.name?.toLowerCase().includes(unlockGameSearch.toLowerCase()))
+              .slice(0, 10)
+              .map(g => (
+                <button key={g.game_id} type="button" disabled={uploading}
+                  onClick={() => {
+                    const id = g.universe_id || g.game_id;
+                    setUnlockTarget(`${STORE_BASE}/unlock?u=${encodeURIComponent(id)}`);
+                    setUnlockGameSearch(g.name);
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm text-foreground hover:bg-muted/50 transition-colors">
+                  {g.name} <span className="text-xs text-muted-foreground">· {g.game_id}</span>
+                </button>
+              ))}
+            {keyGames.filter(g => g.name?.toLowerCase().includes(unlockGameSearch.toLowerCase())).length === 0 && (
+              <p className="px-3 py-2 text-xs text-muted-foreground">No match.</p>
+            )}
+          </div>
+        )}
+        <div>
+          <label className="text-xs font-medium text-muted-foreground mb-1 block">Unlock target for this video (editable)</label>
+          <Input
+            placeholder="Blank = use default Social-Unlock target"
+            value={unlockTarget}
+            onChange={e => setUnlockTarget(e.target.value)}
+            disabled={uploading}
+          />
+        </div>
+      </motion.div>
 
       {/* Metadata */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}

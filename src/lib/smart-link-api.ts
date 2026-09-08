@@ -59,12 +59,27 @@ export interface YouTubeSmartLinkRequest {
   channelId: string; // actual YouTube channel ID (UCxxxx...)
   targetUrl: string;
   discordUrl?: string; // invite link, required only when actions.discord is on
+  watchVideoId?: string; // video the viewer must watch (blank = this upload's own videoId)
+  watchSeconds?: number; // required watch duration when actions.watch is on
   actions: {
     subscribe: boolean;
     like: boolean;
     comment: boolean;
     discord?: boolean;
+    watch?: boolean;
   };
+}
+
+/** Extract an 11-char YouTube video id from a full URL, a youtu.be link, or a bare id. */
+export function parseYouTubeVideoId(input: string): string {
+  if (!input) return "";
+  const s = input.trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+  const m =
+    s.match(/[?&]v=([a-zA-Z0-9_-]{11})/) ||
+    s.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/) ||
+    s.match(/\/(?:embed|shorts|live)\/([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : "";
 }
 
 export interface FacebookSmartLinkRequest {
@@ -128,22 +143,28 @@ export async function generateYouTubeSmartLink(
   shorten = false
 ): Promise<SmartLinkResponse> {
   try {
-    // Action mask: subscribe=1, like=2, comment=4, discord=8
+    // Action mask: subscribe=1, like=2, comment=4, discord=8, watch=16
     let mask = 0;
     if (req.actions.subscribe) mask |= 1;
     if (req.actions.like) mask |= 2;
     if (req.actions.comment) mask |= 4;
     if (req.actions.discord) mask |= 8;
+    if (req.actions.watch) mask |= 16;
 
     // Strip "UC" prefix for compact encoding
     const compactChannelId = req.channelId.startsWith("UC")
       ? req.channelId.slice(2)
       : req.channelId;
 
-    // A 4th element (Discord invite) is appended only when Join-Discord is required,
-    // so existing 3-element links keep decoding unchanged.
+    // Optional fields are appended SEQUENTIALLY, guarded by their mask bit, in a fixed
+    // order (discord, then watch). Decoders walk a cursor from index 3 using the same bits,
+    // so old 3/4-element links keep decoding unchanged.
     const payload: (string | number)[] = [mask, compactChannelId, req.targetUrl];
-    if (req.actions.discord && req.discordUrl) payload.push(req.discordUrl);
+    if (req.actions.discord) payload.push(req.discordUrl || "");
+    if (req.actions.watch) {
+      payload.push(req.watchVideoId || "");            // "" = watch this upload's own video
+      payload.push(Math.max(1, Math.round(req.watchSeconds || 30)));
+    }
     const encoded = base64url(payload);
     // Host on our own domain (falls back to API_BASE only during SSR). The chosen
     // PAGE decides the path: "u" = bare direct-steps gate, "article" = AdSense editorial.

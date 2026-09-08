@@ -243,10 +243,8 @@ export function setTranslateProvider(value: string) {
  * `override` (or the saved choice) is "<provider>:<realModelId>".
  */
 // Automatic fallback: if the chosen provider fails (rate limit / outage), retry with
-// Gemini (needs GEMINI_API_KEY secret). Important when mass-translating titles +
+// Gemini (needs GEMINI_API_KEYS secret). Important when mass-translating titles +
 // descriptions across many channels, where the primary can get rate-limited.
-const GEMINI_FALLBACK = "gemini:gemini-flash-lite-latest";
-
 export async function translateText(
   text: string,
   targetLanguage: string,
@@ -276,11 +274,15 @@ export async function translateText(
 
   const first = await tryOne(chosen);
   if (first.success) return first;
-  // Fall back to Gemini (unless it was already the choice).
-  if (!chosen.startsWith("gemini:")) {
-    const fb = await tryOne(GEMINI_FALLBACK);
+  // Gemini fallback — cheapest model first, then the latest full Flash if flash-lite is
+  // congested. Skips whichever model was already the primary. Each call load-spreads
+  // across all Gemini keys server-side.
+  let lastErr = first.error;
+  for (const g of ["gemini:gemini-flash-lite-latest", "gemini:gemini-flash-latest"]) {
+    if (g === chosen) continue;
+    const fb = await tryOne(g);
     if (fb.success) return fb;
-    return { success: false, error: `${first.error} · Gemini fallback: ${fb.error}` };
+    lastErr = fb.error;
   }
-  return first;
+  return { success: false, error: lastErr };
 }

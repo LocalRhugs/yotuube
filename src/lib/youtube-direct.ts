@@ -35,6 +35,7 @@ export interface SocialUnlockActions {
   like: boolean;
   comment: boolean;
   discord?: boolean;
+  watch?: boolean; // require watching a video for N seconds (countdown pauses if they pause)
 }
 
 export interface UploadDefaults {
@@ -48,6 +49,8 @@ export interface UploadDefaults {
   socialUnlockTargetUrl?: string;
   socialUnlockActions?: SocialUnlockActions;
   socialUnlockDiscordUrl?: string; // Discord invite, used when actions.discord is on
+  socialUnlockWatchVideoUrl?: string; // video to watch for the "watch" action; blank = the uploaded video itself
+  socialUnlockWatchSeconds?: number;  // required watch duration in seconds (default 30)
   socialUnlockHeader?: string; // e.g. "🎁 UNLOCK EXCLUSIVE CONTENT"
   socialUnlockBody?: string;   // e.g. "Unlock exclusive content!\n\nComplete the required actions to access:"
 }

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import StatCard from "@/components/StatCard";
 import { useEffect, useMemo, useState } from "react";
 import { getAllChannelStats, getChannelSnapshots, getRecentPerformance } from "@/lib/youtube-api";
-import { Smartphone, Film as FilmIcon } from "lucide-react";
+import { Smartphone, Film as FilmIcon, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 
 interface ChannelStat {
   id: string; channelId: string; title: string;
@@ -12,11 +12,13 @@ interface ChannelStat {
   hiddenSubs?: boolean; thumbnail?: string;
 }
 interface Snap { channel_id: string; title: string; subs: number; views: number; videos: number; day: string; }
+interface PerfVideo { id: string; title: string; views: number; isShort: boolean; publishedAt?: string; }
 interface Perf {
   id: string; channelId: string; title: string;
   recentCount: number; avgViews: number;
   shortsCount: number; shortsAvg: number; longCount: number; longAvg: number;
   best: { id: string; title: string; views: number; isShort: boolean } | null;
+  videos?: PerfVideo[];
 }
 
 const fmt = (n: number) => {
@@ -36,6 +38,8 @@ const AnalyticsPage = () => {
   const [loading, setLoading] = useState(true);
   const [perfLoading, setPerfLoading] = useState(true);
   const [period, setPeriod] = useState<Period>(7);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) => setExpanded(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const load = async () => {
     setLoading(true); setPerfLoading(true);
@@ -191,25 +195,49 @@ const AnalyticsPage = () => {
               const winner = p.shortsCount && p.longCount
                 ? (p.shortsAvg > p.longAvg ? "short" : p.longAvg > p.shortsAvg ? "long" : "tie")
                 : p.shortsCount ? "short" : p.longCount ? "long" : "none";
+              const isOpen = expanded.has(p.id);
+              const vids = [...(p.videos || [])].sort((a, b) => b.views - a.views);
               return (
-                <div key={p.id} className="px-5 py-3 flex items-center gap-4 flex-wrap sm:flex-nowrap">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">{p.title}</p>
-                    <p className="text-xs text-muted-foreground">{p.recentCount} recent · <span className="text-foreground font-semibold">{fmt(p.avgViews)}</span> avg views/vid</p>
-                  </div>
-                  <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg ${winner === "short" ? "bg-red-500/10 text-red-400 ring-1 ring-red-500/30" : "text-muted-foreground"}`}>
-                    <Smartphone className="w-3.5 h-3.5" /> {fmt(p.shortsAvg)} <span className="opacity-60">({p.shortsCount})</span>
-                  </div>
-                  <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg ${winner === "long" ? "bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/30" : "text-muted-foreground"}`}>
-                    <FilmIcon className="w-3.5 h-3.5" /> {fmt(p.longAvg)} <span className="opacity-60">({p.longCount})</span>
-                  </div>
-                  <div className="hidden lg:block w-64 min-w-0">
-                    {p.best && (
-                      <p className="text-xs text-muted-foreground truncate" title={p.best.title}>
-                        🏆 {fmt(p.best.views)} · {p.best.isShort ? "Short" : "Long"} — {p.best.title}
-                      </p>
-                    )}
-                  </div>
+                <div key={p.id}>
+                  <button onClick={() => toggleExpand(p.id)} className="w-full px-5 py-3 flex items-center gap-4 flex-wrap sm:flex-nowrap text-left hover:bg-muted/30 transition-colors">
+                    <span className="text-muted-foreground shrink-0">{isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{p.title}</p>
+                      <p className="text-xs text-muted-foreground">{p.recentCount} recent · <span className="text-foreground font-semibold">{fmt(p.avgViews)}</span> avg views/vid</p>
+                    </div>
+                    <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg ${winner === "short" ? "bg-red-500/10 text-red-400 ring-1 ring-red-500/30" : "text-muted-foreground"}`}>
+                      <Smartphone className="w-3.5 h-3.5" /> {fmt(p.shortsAvg)} <span className="opacity-60">({p.shortsCount})</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg ${winner === "long" ? "bg-blue-500/10 text-blue-400 ring-1 ring-blue-500/30" : "text-muted-foreground"}`}>
+                      <FilmIcon className="w-3.5 h-3.5" /> {fmt(p.longAvg)} <span className="opacity-60">({p.longCount})</span>
+                    </div>
+                    <div className="hidden lg:block w-64 min-w-0">
+                      {p.best && (
+                        <p className="text-xs text-muted-foreground truncate" title={p.best.title}>
+                          🏆 {fmt(p.best.views)} · {p.best.isShort ? "Short" : "Long"} — {p.best.title}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                  {isOpen && (
+                    <div className="bg-muted/20 border-t border-border/40">
+                      {vids.length === 0 ? (
+                        <p className="px-12 py-4 text-xs text-muted-foreground">No recent videos returned.</p>
+                      ) : vids.map(v => (
+                        <div key={v.id} className="pl-12 pr-5 py-2 flex items-center gap-3 border-b border-border/20 last:border-0">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${v.isShort ? "bg-red-500/15 text-red-400" : "bg-blue-500/15 text-blue-400"}`}>
+                            {v.isShort ? "SHORT" : "LONG"}
+                          </span>
+                          <span className="flex-1 min-w-0 truncate text-xs text-foreground" title={v.title}>{v.title}</span>
+                          {v.publishedAt && <span className="hidden sm:block text-[11px] text-muted-foreground shrink-0">{new Date(v.publishedAt).toLocaleDateString()}</span>}
+                          <span className="text-xs font-semibold text-foreground shrink-0 w-16 text-right">{fmt(v.views)}</span>
+                          <a href={`https://youtube.com/watch?v=${v.id}`} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="text-muted-foreground hover:text-foreground shrink-0">
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}

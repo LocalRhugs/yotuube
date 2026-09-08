@@ -1016,7 +1016,8 @@ const UploadPage = () => {
                     <button key={g.game_id} type="button" disabled={uploading}
                       onClick={() => {
                         const id = g.universe_id || g.game_id;
-                        setUnlockTarget(`${STORE_BASE}/unlock?u=${encodeURIComponent(id)}`);
+                        // Pass the name so the store can auto-create the script page if it doesn't exist.
+                        setUnlockTarget(`${STORE_BASE}/unlock?u=${encodeURIComponent(id)}&n=${encodeURIComponent(g.name)}`);
                         setUnlockGameName(g.name);
                         setUnlockGameSearch("");
                       }}

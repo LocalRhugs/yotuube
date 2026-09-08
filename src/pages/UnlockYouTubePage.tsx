@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, Lock, ThumbsUp, MessageSquare, Youtube, ArrowRight, Loader2, Download } from "lucide-react";
+import { CheckCircle2, Lock, ThumbsUp, MessageSquare, Youtube, ArrowRight, Loader2, Download, Play } from "lucide-react";
 import ComplianceFooter from "@/components/ComplianceFooter";
 
 declare global { interface Window { YT?: any; onYouTubeIframeAPIReady?: () => void; } }
@@ -135,6 +135,25 @@ export default function UnlockYouTubePage() {
     if (unlocked && targetUrl) window.location.href = targetUrl;
   };
 
+  // Progress across social steps + the watch step (drives the top progress bar).
+  const requiredSocial = [
+    actions.subscribe && "subscribe", actions.like && "like",
+    actions.comment && "comment", actions.discord && "discord",
+  ].filter(Boolean) as string[];
+  const completedSocial = requiredSocial.filter(a => completed[a]).length;
+  const totalSteps = requiredSocial.length + (strictWatch ? 1 : 0);
+  const doneSteps = completedSocial + (strictWatch && watchSatisfied ? 1 : 0);
+  const progressPct = totalSteps > 0 ? Math.round((doneSteps / totalSteps) * 100) : (unlocked ? 100 : 0);
+
+  // Watch-step subtitle (mirrors the clean "Press play to continue" style).
+  const watchSubtitle = watchSatisfied
+    ? "Watched — thanks!"
+    : isPlaying
+      ? `Keep watching · ${watchTarget - watchedSeconds}s left`
+      : watchedSeconds > 0
+        ? `Paused — press play to continue · ${watchTarget - watchedSeconds}s left`
+        : `Press play to start · ${watchTarget}s`;
+
   return (
     <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col items-center justify-center p-4">
       {/* Bridge page — excluded from AdSense crawl per Google policy */}
@@ -157,21 +176,28 @@ export default function UnlockYouTubePage() {
             <span className="text-xs font-medium text-gray-300">Content Locked</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-            Complete Steps to Unlock
+            Content Locked
           </h1>
-          <p className="text-gray-400 text-sm">Perform the actions below to access the destination link.</p>
+          <p className="text-gray-400 text-sm">Complete the steps below to unlock.</p>
         </div>
+
+        {totalSteps > 0 && (
+          <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold tracking-[0.15em] text-gray-400 uppercase">Your Progress</span>
+              <span className="text-xs font-bold text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">{doneSteps}/{totalSteps}</span>
+            </div>
+            <div className="h-2.5 rounded-full bg-white/10 overflow-hidden">
+              <div className="h-full rounded-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-500" style={{ width: `${progressPct}%` }} />
+            </div>
+          </div>
+        )}
         <Card className="bg-[#1a1a1a] border-white/5 shadow-2xl overflow-hidden">
           <div className="aspect-video w-full bg-black relative group">
             <YouTubeGatePlayer videoId={heroVideoId} strict={strictWatch} onPlayingChange={setIsPlaying} />
-            {!watchSatisfied && strictWatch && !isPlaying && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-[2px] pointer-events-none">
-                <div className="px-4 py-2 rounded-full bg-black/80 border border-white/15 text-sm font-semibold text-white flex items-center gap-2">
-                  ▶ Resume the video to continue · {watchTarget - watchedSeconds}s left
-                </div>
-              </div>
-            )}
-            {!watchSatisfied && (!strictWatch || isPlaying) && (
+            {/* Legacy hero shows a small progress pill; strict "watch" mode surfaces status in
+                the Watch Video row below, so the video itself stays clean with native controls. */}
+            {!strictWatch && !watchSatisfied && (
               <div className="absolute bottom-2 right-2 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs font-semibold text-white pointer-events-none">
                 Watching... {watchTarget - watchedSeconds}s
               </div>
@@ -202,6 +228,24 @@ export default function UnlockYouTubePage() {
               <ActionBtn label="Join Discord Server" icon={<DiscordIcon />} colorBg="bg-indigo-600"
                 done={completed.discord} loading={verifying.discord}
                 onClick={() => verify("discord", discordUrl || "https://discord.com")} />
+            )}
+            {strictWatch && (
+              <div className={`w-full h-16 flex items-center gap-3 rounded-xl border px-4 transition-colors ${
+                watchSatisfied ? "bg-green-500/10 border-green-500/50" : "bg-white/[0.03] border-white/10"
+              }`}>
+                <div className={`p-2 rounded-lg ${watchSatisfied ? "bg-green-500" : "bg-red-600"}`}>
+                  {watchSatisfied ? <CheckCircle2 className="w-5 h-5 text-white" /> : <Play className="w-5 h-5 text-white fill-white" />}
+                </div>
+                <div className="flex-1 text-center">
+                  <div className="font-semibold leading-tight">Watch Video</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{watchSubtitle}</div>
+                </div>
+                <div className="w-6 flex justify-center">
+                  {watchSatisfied ? <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    : isPlaying ? <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                    : <Play className="w-5 h-5 text-gray-500 fill-gray-500" />}
+                </div>
+              </div>
             )}
           </div>
           <div className="p-6 bg-white/5 border-t border-white/5 space-y-3">
@@ -310,13 +354,17 @@ function YouTubeGatePlayer({ videoId, strict, onPlayingChange }: {
       playerRef.current = new window.YT.Player(containerRef.current, {
         videoId,
         playerVars: {
-          autoplay: 1, mute: 1, controls: strict ? 1 : 0, rel: 0, showinfo: 0,
+          // Strict "watch" mode: NO autoplay + real controls + sound — the viewer presses play.
+          autoplay: strict ? 0 : 1, mute: strict ? 0 : 1, controls: strict ? 1 : 0, rel: 0, showinfo: 0,
           modestbranding: 1, playsinline: 1,
           loop: strict ? 0 : 1, playlist: videoId,
           disablekb: strict ? 0 : 1, fs: 0, iv_load_policy: 3,
         },
         events: {
-          onReady: (e: any) => { try { e.target.mute(); e.target.playVideo(); } catch {} },
+          onReady: (e: any) => {
+            // Legacy hero autoplays muted; strict mode waits for a manual play.
+            if (!strict) { try { e.target.mute(); e.target.playVideo(); } catch {} }
+          },
           onStateChange: (e: any) => {
             // YT states: 1 = playing, 2 = paused, 0 = ended, 3 = buffering
             if (strict) {

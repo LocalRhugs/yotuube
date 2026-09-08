@@ -215,6 +215,9 @@ export const TRANSLATE_MODELS: TranslateModel[] = [
   { value: "openrouter:anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5 · $3/$15", group: "Claude (OpenRouter)" },
   { value: "openrouter:anthropic/claude-haiku-4.5",  label: "Claude Haiku 4.5 · $1/$5",   group: "Claude (OpenRouter)" },
   { value: "openrouter:anthropic/claude-3-5-haiku",  label: "Claude Haiku 3.5 · $0.8/$4", group: "Claude (OpenRouter)" },
+  // Gemini (GEMINI_API_KEY) — fast/cheap; also the automatic fallback when any provider fails.
+  { value: "gemini:gemini-flash-lite-latest", label: "Gemini Flash-Lite ⭐", group: "Gemini" },
+  { value: "gemini:gemini-flash-latest",      label: "Gemini Flash",         group: "Gemini" },
 ];
 
 // Default to a cheap, working OpenRouter model (Pollinations needs a funded "pollen" balance;
@@ -239,6 +242,11 @@ export function setTranslateProvider(value: string) {
  * Translate text via the `translate` edge function using the chosen model.
  * `override` (or the saved choice) is "<provider>:<realModelId>".
  */
+// Automatic fallback: if the chosen provider fails (rate limit / outage), retry with
+// Gemini (needs GEMINI_API_KEY secret). Important when mass-translating titles +
+// descriptions across many channels, where the primary can get rate-limited.
+const GEMINI_FALLBACK = "gemini:gemini-flash-lite-latest";
+
 export async function translateText(
   text: string,
   targetLanguage: string,
@@ -246,20 +254,33 @@ export async function translateText(
   override?: string
 ): Promise<{ success: boolean; translatedText?: string; error?: string }> {
   const chosen = override || getTranslateProvider();
-  const idx = chosen.indexOf(":");
-  const provider = idx > 0 ? chosen.slice(0, idx) : "pollinations";
-  const model = idx > 0 ? chosen.slice(idx + 1) : chosen;
-  try {
-    const { data, error } = await supabase.functions.invoke('translate', {
-      body: { text, targetLanguage, sourceLanguage, provider, model },
-    });
-    if (error || !data?.success) {
-      const context = (error as any)?.context;
-      const body = context ? await context.json?.().catch(() => null) : null;
-      return { success: false, error: body?.error || error?.message || "Translation failed" };
+
+  const tryOne = async (spec: string) => {
+    const idx = spec.indexOf(":");
+    const provider = idx > 0 ? spec.slice(0, idx) : "pollinations";
+    const model = idx > 0 ? spec.slice(idx + 1) : spec;
+    try {
+      const { data, error } = await supabase.functions.invoke('translate', {
+        body: { text, targetLanguage, sourceLanguage, provider, model },
+      });
+      if (error || !data?.success) {
+        const context = (error as any)?.context;
+        const body = context ? await context.json?.().catch(() => null) : null;
+        return { success: false as const, error: body?.error || error?.message || "Translation failed" };
+      }
+      return { success: true as const, translatedText: data.translatedText as string };
+    } catch (err: any) {
+      return { success: false as const, error: err.message || "Translation failed" };
     }
-    return { success: true, translatedText: data.translatedText };
-  } catch (err: any) {
-    return { success: false, error: err.message || "Translation failed" };
+  };
+
+  const first = await tryOne(chosen);
+  if (first.success) return first;
+  // Fall back to Gemini (unless it was already the choice).
+  if (!chosen.startsWith("gemini:")) {
+    const fb = await tryOne(GEMINI_FALLBACK);
+    if (fb.success) return fb;
+    return { success: false, error: `${first.error} · Gemini fallback: ${fb.error}` };
   }
+  return first;
 }

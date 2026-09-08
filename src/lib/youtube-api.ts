@@ -120,6 +120,10 @@ export async function getChannelSnapshots() {
   return invokeYouTubeAuth({ action: 'get_snapshots' });
 }
 
+export async function getRecentPerformance() {
+  return invokeYouTubeAuth({ action: 'get_recent_performance' });
+}
+
 export async function validateYouTubeConfig(redirectUri: string) {
   return invokeYouTubeAuth({ action: 'validate', redirectUri });
 }

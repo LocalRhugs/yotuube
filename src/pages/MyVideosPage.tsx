@@ -241,6 +241,22 @@ const MyVideosPage = () => {
     fetchVideos();
   };
 
+  const handleBatchPrivacy = async (status: "public" | "unlisted" | "private") => {
+    if (!selectedChannel || selectedVideos.size === 0) return;
+    let success = 0, fail = 0;
+    for (const videoId of Array.from(selectedVideos)) {
+      const { data } = await supabase.functions.invoke('youtube-auth', {
+        body: { action: 'set_privacy', channelTokenId: selectedChannel, videoId, privacyStatus: status },
+      });
+      if (data?.success) success++; else fail++;
+    }
+    // Reflect the change locally without a full refetch.
+    setVideos(prev => prev.map(v => selectedVideos.has(v.id) ? { ...v, privacyStatus: status } : v));
+    toast.success(`Set ${success} video(s) to ${status}${fail > 0 ? `, failed ${fail}` : ''}`);
+    setSelectedVideos(new Set());
+    setIsMultiSelectMode(false);
+  };
+
   const toggleSelect = (id: string) => {
     const next = new Set(selectedVideos);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -556,6 +572,7 @@ const MyVideosPage = () => {
         selectedCount={selectedVideos.size}
         onClearSelection={() => { setSelectedVideos(new Set()); setIsMultiSelectMode(false); }}
         onBatchDelete={handleBatchDelete}
+        onBatchPrivacy={handleBatchPrivacy}
       />
     </div>
   );

@@ -13,6 +13,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { getFacebookPages, getInstagramAccount } from "@/lib/facebook-api";
 import { getYouTubeChannels } from "@/lib/youtube-api";
+import { seedChannelLangPlan, getChannelLang, setChannelLang } from "@/lib/channel-langs";
 import { publishToFacebook, publishToInstagram, uploadToYouTube } from "@/lib/publish-api";
 import { supabase } from "@/integrations/supabase/client";
 import VideoPreview from "@/components/VideoPreview";
@@ -232,6 +233,16 @@ const UploadPage = () => {
 
       setDestinations(dests);
       setLoadingDestinations(false);
+
+      // Pre-fill each YouTube channel's saved default language (seeds the recommended plan
+      // on first run) so uploads auto-translate per channel with no manual picking.
+      try {
+        const yt = dests.filter(d => d.platform === 'youtube' && d.channelTokenId);
+        seedChannelLangPlan(yt.map(d => ({ id: d.channelTokenId as string, title: d.name })));
+        const init: Record<string, string> = {};
+        for (const d of yt) init[d.id] = getChannelLang(d.channelTokenId as string);
+        setChannelLangs(init);
+      } catch { /* ignore */ }
     };
     loadDestinations();
   }, []);
@@ -1204,9 +1215,13 @@ const UploadPage = () => {
                 {dest.platform === 'youtube' && selectedAccounts.includes(dest.id) && (
                   <select
                     value={channelLangs[dest.id] || ''}
-                    onChange={e => setChannelLangs(prev => ({ ...prev, [dest.id]: e.target.value }))}
+                    onChange={e => {
+                      const code = e.target.value;
+                      setChannelLangs(prev => ({ ...prev, [dest.id]: code }));
+                      if (dest.channelTokenId) setChannelLang(dest.channelTokenId, code); // persist as this channel's default
+                    }}
                     disabled={uploading}
-                    title="Upload language for this channel"
+                    title="Upload language for this channel (saved as its default)"
                     className="text-xs border border-border rounded px-1.5 py-1 bg-background text-foreground"
                   >
                     <option value="">English (original)</option>

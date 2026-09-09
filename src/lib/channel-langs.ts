@@ -61,7 +61,7 @@ const PLAN_BY_TITLE: Record<string, string> = {
   "nighthub1": "ru",
   "apexscripts": "pt",
   "최고의 로블록스 스크립트": "ko",
-  "한국어 로블록스 스크립트": "de",
+  "한국어 로블록스 스크립트": "ko", // was "de" — owner staying Korean on both (Korean script vids gain traction as they age)
 };
 
 /**

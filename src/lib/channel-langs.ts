@@ -60,7 +60,7 @@ const PLAN_BY_TITLE: Record<string, string> = {
   "ghostkey1.0": "tl",
   "nighthub1": "ru",
   "apexscripts": "pt",
-  "최고의 로블록스 스크립트": "ko",
+  "최고의 로블록스 스크립트": "id", // repurposed Korean→Indonesian 2026-09-10 (redundant dead-weight KR channel → reclaim Indonesia, the #1 lost market after WICKEDCODE1 termination)
   "한국어 로블록스 스크립트": "ko", // was "de" — owner staying Korean on both (Korean script vids gain traction as they age)
 };
 

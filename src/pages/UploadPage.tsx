@@ -18,7 +18,7 @@ import { seedUploadModePlan, getUploadMode, setUploadMode, MODE_OPTIONS, type Up
 import { getKeyGames, type KeyGame } from "@/lib/key-games";
 
 // Base URL of the store that hosts /unlock + /scripts (change if your store lives elsewhere).
-const STORE_BASE = "https://combowick-keys.vercel.app";
+const STORE_BASE = "https://keys.combowick.com";
 import { publishToFacebook, publishToInstagram, uploadToYouTube } from "@/lib/publish-api";
 import { supabase } from "@/integrations/supabase/client";
 import VideoPreview from "@/components/VideoPreview";

@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Facebook, Instagram, Key, User, Upload, Settings as SettingsIcon, Loader2, CheckCircle2, XCircle, ExternalLink, Unplug, Plus, Trash2, Globe, Lock, Eye, Link2, RefreshCw, FileText, Save } from "lucide-react";
+import { Facebook, Instagram, Key, User, Upload, Settings as SettingsIcon, Loader2, CheckCircle2, XCircle, ExternalLink, Unplug, Plus, Trash2, Globe, Lock, Eye, Link2, RefreshCw, FileText, Save, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { getFacebookPages, getInstagramAccount } from "@/lib/facebook-api";
@@ -12,6 +12,7 @@ import { getYouTubeAuthUrl, getYouTubeChannels, disconnectYouTube, validateYouTu
 import { LANG_OPTIONS, getChannelLangMap, setChannelLang, seedChannelLangPlan } from "@/lib/channel-langs";
 import { getUploadDefaults, saveUploadDefaults, type UploadDefaults } from "@/lib/youtube-direct";
 import { getSmartLinkPage, setSmartLinkPage, getSmartLinkFormat, setSmartLinkFormat, type SmartLinkPage, type SmartLinkFormat } from "@/lib/smart-link-api";
+import { getDiscordConfig, saveDiscordConfig, PING_OPTIONS, sendDiscordTest, type DiscordPing, type DiscordConfig } from "@/lib/discord-webhook";
 import SmartLinkAnalytics from "@/components/SmartLinkAnalytics";
 
 
@@ -184,6 +185,9 @@ const SettingsPage = () => {
           </TabsTrigger>
           <TabsTrigger value="bios" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <FileText className="w-4 h-4 mr-2" /> Bios
+          </TabsTrigger>
+          <TabsTrigger value="discord" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <Bell className="w-4 h-4 mr-2" /> Discord
           </TabsTrigger>
           <TabsTrigger value="general" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <SettingsIcon className="w-4 h-4 mr-2" /> General
@@ -633,6 +637,10 @@ const SettingsPage = () => {
           </motion.div>
         </TabsContent>
 
+        <TabsContent value="discord">
+          <DiscordAnnouncerSection channels={ytChannels} />
+        </TabsContent>
+
         <TabsContent value="general">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-5">
             <h2 className="font-display font-semibold text-foreground">General Settings</h2>
@@ -655,6 +663,83 @@ const SettingsPage = () => {
     </div>
   );
 };
+
+// Discord new-video announcer — replaces Discord's built-in YouTube integration.
+// Set the webhook, pick which channels announce, and control long-form vs Short pings.
+function DiscordAnnouncerSection({ channels }: { channels: YtChannel[] }) {
+  const [cfg, setCfg] = useState<DiscordConfig>(() => getDiscordConfig());
+  const [testing, setTesting] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const update = (patch: Partial<DiscordConfig>) => {
+    const next = { ...cfg, ...patch };
+    setCfg(next);
+    saveDiscordConfig(next);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 1500);
+  };
+  const test = async (isShort: boolean) => {
+    if (!cfg.url) { toast.error("Add your webhook URL first."); return; }
+    setTesting(true);
+    const r = await sendDiscordTest(cfg.url, isShort);
+    setTesting(false);
+    if (r.success) toast.success("Test sent — check your Discord channel!");
+    else toast.error("Test failed: " + (r.error || "unknown"));
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
+      <div>
+        <h2 className="font-display font-semibold text-foreground flex items-center gap-2"><Bell className="w-4 h-4 text-youtube" /> Discord New-Video Announcer</h2>
+        <p className="text-sm text-muted-foreground mt-1">Auto-post new uploads to Discord with smart pinging — long-form vs Shorts — instead of @everyone for everything.</p>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-foreground">Discord Webhook URL</label>
+        <input type="password" value={cfg.url} onChange={(e) => update({ url: e.target.value.trim() })} placeholder="https://discord.com/api/webhooks/..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
+        <p className="text-xs text-muted-foreground">Discord → Channel → Edit → Integrations → Webhooks → New Webhook → Copy URL.</p>
+        <div className="flex items-center gap-2 pt-1">
+          <Button size="sm" variant="outline" disabled={testing} onClick={() => test(false)}>{testing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null} Test video</Button>
+          <Button size="sm" variant="outline" disabled={testing} onClick={() => test(true)}>Test Short</Button>
+          {saved && <span className="text-xs text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Saved</span>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className="text-sm font-medium text-foreground">Long-form videos ping</label>
+          <select value={cfg.longPing} onChange={(e) => update({ longPing: e.target.value as DiscordPing })} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">
+            {PING_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-sm font-medium text-foreground">Shorts ping</label>
+          <select value={cfg.shortPing} onChange={(e) => update({ shortPing: e.target.value as DiscordPing })} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">
+            {PING_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground -mt-2">Tip: ping @everyone on long-form (where you want views), keep Shorts silent so you don't spam the server.</p>
+
+      <div>
+        <h3 className="text-sm font-semibold text-foreground mb-1">Which channels announce?</h3>
+        <p className="text-xs text-muted-foreground mb-3">On by default once a webhook is set. Turn off any channel you don't want posting to Discord.</p>
+        {channels.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-4 text-center">No connected channels.</p>
+        ) : (
+          <div className="space-y-2">
+            {channels.map((ch) => (
+              <div key={ch.id} className="flex items-center justify-between p-3 rounded-lg bg-muted">
+                <span className="text-sm text-foreground truncate">{ch.channelTitle}</span>
+                <Switch checked={cfg.channels[ch.id] !== false} onCheckedChange={(v) => update({ channels: { ...cfg.channels, [ch.id]: v } })} disabled={!cfg.url} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
 
 export default SettingsPage;
 

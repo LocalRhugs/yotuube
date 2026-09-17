@@ -56,12 +56,21 @@ const PLAN_BY_TITLE: Record<string, string> = {
   "wick_scripts": "es",
   "wickedcode1": "id",
   "appinoscripts": "th",
-  "bestrobloxxscripts": "vi",
+  "bestrobloxxscripts": "id", // Indonesian 2026-09-17 (was "vi" — dead VN channel repurposed to Indonesia, the proven #1 market: WICKEDCODE1 ID Shorts 1.8K vs COMBO_WICK 103)
   "ghostkey1.0": "tl",
   "nighthub1": "ru",
   "apexscripts": "pt",
-  "최고의 로블록스 스크립트": "id", // repurposed Korean→Indonesian 2026-09-10 (redundant dead-weight KR channel → reclaim Indonesia, the #1 lost market after WICKEDCODE1 termination)
+  "최고의 로블록스 스크립트": "ko", // stays Korean — it's growing (owner rule); do NOT convert to Indonesian
   "한국어 로블록스 스크립트": "ko", // was "de" — owner staying Korean on both (Korean script vids gain traction as they age)
+};
+
+// One-time forced overrides (bump the version to re-apply to already-seeded channels).
+// Unlike the seed, these OVERWRITE an existing per-channel value, matched by title.
+const OVERRIDE_VERSION = "2026-09-17-id";
+const OVERRIDE_KEY = "yt_channel_langs_override_v1";
+const FORCE_BY_TITLE: Record<string, string> = {
+  "bestrobloxxscripts": "id",
+  "최고의 로블록스 스크립트": "ko",
 };
 
 /**
@@ -78,6 +87,17 @@ export function seedChannelLangPlan(channels: { id: string; title?: string }[]):
     const t = (c.title || "").trim().toLowerCase();
     const planned = PLAN_BY_TITLE[t];
     if (planned !== undefined) map[c.id] = planned;
+  }
+  // Apply forced overrides once per OVERRIDE_VERSION, even for channels already set.
+  let appliedVer = "";
+  try { appliedVer = localStorage.getItem(OVERRIDE_KEY) || ""; } catch { /* ignore */ }
+  if (appliedVer !== OVERRIDE_VERSION) {
+    for (const c of channels) {
+      const t = (c.title || "").trim().toLowerCase();
+      const forced = FORCE_BY_TITLE[t];
+      if (forced !== undefined) map[c.id] = forced;
+    }
+    try { localStorage.setItem(OVERRIDE_KEY, OVERRIDE_VERSION); } catch { /* ignore */ }
   }
   setChannelLangMap(map);
   try { localStorage.setItem(SEEDED_KEY, "1"); } catch { /* ignore */ }

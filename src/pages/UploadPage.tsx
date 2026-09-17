@@ -20,6 +20,7 @@ import { getKeyGames, type KeyGame } from "@/lib/key-games";
 // Base URL of the store that hosts /unlock + /scripts (change if your store lives elsewhere).
 const STORE_BASE = "https://keys.combowick.com";
 import { publishToFacebook, publishToInstagram, uploadToYouTube } from "@/lib/publish-api";
+import { announceVideo } from "@/lib/discord-webhook";
 import { supabase } from "@/integrations/supabase/client";
 import VideoPreview from "@/components/VideoPreview";
 import VideoEditor from "@/components/VideoEditor";
@@ -557,6 +558,10 @@ const UploadPage = () => {
             if (res.success && res.videoId && thumbnail) {
               const thumbOk = await uploadThumbnail(dest.accessToken, res.videoId, thumbnail);
               if (!thumbOk) toast.warning(`${dest.name}: video uploaded, but the custom thumbnail was rejected. Custom thumbnails require a phone-verified YouTube channel (also check image is JPG/PNG under 2MB).`);
+            }
+            // Announce the new video to Discord (smart long-form vs Short ping; no-op if not configured/enabled)
+            if (res.success && res.videoId && dest.channelTokenId) {
+              announceVideo({ videoId: res.videoId, title, channelTitle: dest.name, channelTokenId: dest.channelTokenId, isShort: !!asShort }).catch(() => {});
             }
             // Generate smart link if social unlock is enabled
             if (res.success && res.videoId) {

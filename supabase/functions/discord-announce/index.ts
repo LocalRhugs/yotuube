@@ -1,7 +1,8 @@
 // discord-announce — posts a new-video announcement to a Discord webhook (server-side).
-// Smart pinging: caller passes `ping` ("everyone" | "here" | "none") for long-form vs Short,
-// so Shorts don't @everyone like Discord's built-in integration. Includes a clear CTA so
-// players know exactly what to press + where the script is (description + pinned comment).
+// NO PINGS (owner rule 2026-09-17): pinging drove ~20+ members to leave, so this NEVER
+// @everyone/@here on any video (long-form OR Short). The `ping` param is ignored/dead.
+// Includes a clear CTA so players know exactly what to press + where the script is
+// (description + pinned comment).
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -47,12 +48,13 @@ Deno.serve(async (req) => {
     if (link) embed.url = link;
     if (img) embed.image = { url: img };
 
-    const ping = b.ping === "everyone" ? "@everyone" : b.ping === "here" ? "@here" : "";
+    // NO PINGS EVER — the `ping` param is intentionally ignored (see header). content stays
+    // empty (CTA + link live in the embed) and no mentions are ever parsed.
     const payload = {
       username: "COMBO_WICK Uploads",
-      content: ping, // just the ping — the CTA + link live in the embed (no messy raw URL)
+      content: "",
       embeds: [embed],
-      allowed_mentions: { parse: ping ? ["everyone"] : [] },
+      allowed_mentions: { parse: [] },
     };
 
     const r = await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });

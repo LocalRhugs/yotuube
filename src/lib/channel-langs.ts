@@ -55,8 +55,9 @@ const PLAN_BY_TITLE: Record<string, string> = {
   "combo_wick": "",
   "wick_scripts": "es",
   "wickedcode1": "id",
+  "wickedcode0": "id", // WICKEDCODE0 (rebuilt, connected 2026-09-18) = Indonesian, the proven #1 market (WICKEDCODE1 ID Shorts 1.8K vs COMBO_WICK 103)
   "appinoscripts": "th",
-  "bestrobloxxscripts": "id", // Indonesian 2026-09-17 (was "vi" — dead VN channel repurposed to Indonesia, the proven #1 market: WICKEDCODE1 ID Shorts 1.8K vs COMBO_WICK 103)
+  "bestrobloxxscripts": "vi", // Vietnamese 2026-09-18 — moved off Indonesian (WICKEDCODE0 now owns ID); country VN fits. Avoids two ID channels = dup-content risk
   "ghostkey1.0": "tl",
   "nighthub1": "ru",
   "apexscripts": "pt",
@@ -66,10 +67,11 @@ const PLAN_BY_TITLE: Record<string, string> = {
 
 // One-time forced overrides (bump the version to re-apply to already-seeded channels).
 // Unlike the seed, these OVERWRITE an existing per-channel value, matched by title.
-const OVERRIDE_VERSION = "2026-09-17-id";
+const OVERRIDE_VERSION = "2026-09-18-vi";
 const OVERRIDE_KEY = "yt_channel_langs_override_v1";
 const FORCE_BY_TITLE: Record<string, string> = {
-  "bestrobloxxscripts": "id",
+  "wickedcode0": "id",         // WICKEDCODE0 = Indonesian
+  "bestrobloxxscripts": "vi",  // moved off ID -> Vietnamese (WICKEDCODE0 owns ID now)
   "최고의 로블록스 스크립트": "ko",
 };
 

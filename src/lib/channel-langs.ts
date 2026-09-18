@@ -76,16 +76,15 @@ const FORCE_BY_TITLE: Record<string, string> = {
 };
 
 /**
- * One-time seed: for each channel not yet assigned, apply the recommended plan by title.
- * Runs once (guarded), and never overwrites a channel you've already set yourself.
+ * Seed: for each channel not yet assigned, apply the recommended plan by title. Applies to
+ * ANY channel with no value yet — including ones connected AFTER the first run (a newly added
+ * channel like WICKEDCODE0 must still get its planned language) — but never overwrites a
+ * channel you've already set yourself (a stored "" = English/original counts as set).
  */
 export function seedChannelLangPlan(channels: { id: string; title?: string }[]): Record<string, string> {
   const map = getChannelLangMap();
-  let alreadySeeded = false;
-  try { alreadySeeded = localStorage.getItem(SEEDED_KEY) === "1"; } catch { /* ignore */ }
   for (const c of channels) {
-    if (map[c.id] !== undefined) continue;               // user already set this one
-    if (alreadySeeded && Object.keys(map).length > 0) continue;
+    if (map[c.id] !== undefined) continue;               // user already set this one (incl. "")
     const t = (c.title || "").trim().toLowerCase();
     const planned = PLAN_BY_TITLE[t];
     if (planned !== undefined) map[c.id] = planned;

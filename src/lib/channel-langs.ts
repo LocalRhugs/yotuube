@@ -61,6 +61,10 @@ const PLAN_BY_TITLE: Record<string, string> = {
   "ghostkey1.0": "tl",
   "nighthub1": "ru",
   "apexscripts": "pt",
+  // Rebuilt channels (2026-09-18) — fresh names, same untapped markets the terminated ones held:
+  "ravyn hub": "tl",   // Filipino
+  "kryos hub": "ru",   // Russian
+  "obsyn hub": "pt",   // Portuguese
   "최고의 로블록스 스크립트": "ko", // stays Korean — it's growing (owner rule); do NOT convert to Indonesian
   "한국어 로블록스 스크립트": "ko", // was "de" — owner staying Korean on both (Korean script vids gain traction as they age)
 };

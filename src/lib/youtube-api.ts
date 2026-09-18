@@ -16,6 +16,7 @@ const DEFAULT_CLIENT_IDS = [
   "471084517495-rc56nnf3vfpb4io9rerngk1vce4kggud.apps.googleusercontent.com",
   "524769953337-nfltdl3qj6mf48h1iomhm0o435mbo5jf.apps.googleusercontent.com", // WICKEDCODE0 (project single-shadow-509015-r6) — secret in GOOGLE_CLIENT_PAIRS 2026-09-18
   "654535554098-7kshsq25bebnmdinn8pue4jcs6u0btib.apps.googleusercontent.com", // rebuild #2 (project direct-mission-509017-m1) — secret in GOOGLE_CLIENT_PAIRS 2026-09-18
+  "473409055154-vv1l7fje765eh3niojfuhirj2603atvk.apps.googleusercontent.com", // KryosHub1 (aged channel) — secret in GOOGLE_CLIENT_PAIRS 2026-09-18
 ];
 
 // Client IDs that were saved with a typo and must be purged from browser storage.

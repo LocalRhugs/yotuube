@@ -18,9 +18,8 @@ import { seedUploadModePlan, getUploadMode, setUploadMode, MODE_OPTIONS, type Up
 import { getKeyGames, type KeyGame } from "@/lib/key-games";
 
 // Base URL of the store that hosts /unlock + /scripts (change if your store lives elsewhere).
-const STORE_BASE = "https://keys.combowick.com";
+const STORE_BASE = "https://combowick-keys.vercel.app";
 import { publishToFacebook, publishToInstagram, uploadToYouTube } from "@/lib/publish-api";
-import { announceVideo } from "@/lib/discord-webhook";
 import { supabase } from "@/integrations/supabase/client";
 import VideoPreview from "@/components/VideoPreview";
 import VideoEditor from "@/components/VideoEditor";
@@ -449,9 +448,18 @@ const UploadPage = () => {
           }
           if (!loaded) throw new Error("FFmpeg failed to load");
           await ffmpeg.writeFile("input.mp4", new Uint8Array(await selectedFile.arrayBuffer()));
+          // 9:16 Short with a BLURRED copy of the video as the backdrop (not black bars).
+          // pad= fills black by default — instead we split the frame: one copy fills 1080x1920
+          // and is heavily downscaled→upscaled (a blur using only universal filters, since the
+          // wasm core may lack gblur/boxblur), the other is the sharp video centered on top.
           await ffmpeg.exec([
             "-i", "input.mp4", "-ss", "0", "-to", customShortsDuration.toString(),
-            "-vf", "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
+            "-filter_complex",
+            "[0:v]split=2[bg][fg];" +
+            "[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,scale=90:160,scale=1080:1920:flags=bilinear,setsar=1[bgb];" +
+            "[fg]scale=1080:1920:force_original_aspect_ratio=decrease[fgs];" +
+            "[bgb][fgs]overlay=(W-w)/2:(H-h)/2,format=yuv420p[v]",
+            "-map", "[v]", "-map", "0:a?",
             "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-c:a", "aac", "-b:a", "128k", "output.mp4"
           ]);
           const shortsData = await ffmpeg.readFile("output.mp4");
@@ -558,10 +566,6 @@ const UploadPage = () => {
             if (res.success && res.videoId && thumbnail) {
               const thumbOk = await uploadThumbnail(dest.accessToken, res.videoId, thumbnail);
               if (!thumbOk) toast.warning(`${dest.name}: video uploaded, but the custom thumbnail was rejected. Custom thumbnails require a phone-verified YouTube channel (also check image is JPG/PNG under 2MB).`);
-            }
-            // Announce the new video to Discord (smart long-form vs Short ping; no-op if not configured/enabled)
-            if (res.success && res.videoId && dest.channelTokenId) {
-              announceVideo({ videoId: res.videoId, title, channelTitle: dest.name, channelTokenId: dest.channelTokenId, isShort: !!asShort }).catch(() => {});
             }
             // Generate smart link if social unlock is enabled
             if (res.success && res.videoId) {

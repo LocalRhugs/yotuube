@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Facebook, Instagram, Key, User, Upload, Settings as SettingsIcon, Loader2, CheckCircle2, XCircle, ExternalLink, Unplug, Plus, Trash2, Globe, Lock, Eye, Link2, RefreshCw, FileText, Save, Bell } from "lucide-react";
+import { Facebook, Instagram, Key, User, Upload, Settings as SettingsIcon, Loader2, CheckCircle2, XCircle, ExternalLink, Unplug, Plus, Trash2, Globe, Lock, Eye, Link2, RefreshCw, FileText, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { getFacebookPages, getInstagramAccount } from "@/lib/facebook-api";
@@ -12,8 +12,8 @@ import { getYouTubeAuthUrl, getYouTubeChannels, disconnectYouTube, validateYouTu
 import { LANG_OPTIONS, getChannelLangMap, setChannelLang, seedChannelLangPlan } from "@/lib/channel-langs";
 import { getUploadDefaults, saveUploadDefaults, type UploadDefaults } from "@/lib/youtube-direct";
 import { getSmartLinkPage, setSmartLinkPage, getSmartLinkFormat, setSmartLinkFormat, type SmartLinkPage, type SmartLinkFormat } from "@/lib/smart-link-api";
-import { getDiscordConfig, saveDiscordConfig, PING_OPTIONS, sendDiscordTest, type DiscordPing, type DiscordConfig } from "@/lib/discord-webhook";
 import SmartLinkAnalytics from "@/components/SmartLinkAnalytics";
+import { supabase } from "@/integrations/supabase/client";
 
 
 interface ConnectedAccount {
@@ -185,9 +185,6 @@ const SettingsPage = () => {
           </TabsTrigger>
           <TabsTrigger value="bios" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <FileText className="w-4 h-4 mr-2" /> Bios
-          </TabsTrigger>
-          <TabsTrigger value="discord" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Bell className="w-4 h-4 mr-2" /> Discord
           </TabsTrigger>
           <TabsTrigger value="general" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
             <SettingsIcon className="w-4 h-4 mr-2" /> General
@@ -637,10 +634,6 @@ const SettingsPage = () => {
           </motion.div>
         </TabsContent>
 
-        <TabsContent value="discord">
-          <DiscordAnnouncerSection channels={ytChannels} />
-        </TabsContent>
-
         <TabsContent value="general">
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-5">
             <h2 className="font-display font-semibold text-foreground">General Settings</h2>
@@ -658,90 +651,101 @@ const SettingsPage = () => {
 
             <SmartLinkAnalytics />
           </motion.div>
+
+          <AdminAccessCard />
         </TabsContent>
       </Tabs>
     </div>
   );
 };
 
-// Discord new-video announcer — replaces Discord's built-in YouTube integration.
-// Set the webhook, pick which channels announce, and control long-form vs Short pings.
-function DiscordAnnouncerSection({ channels }: { channels: YtChannel[] }) {
-  const [cfg, setCfg] = useState<DiscordConfig>(() => getDiscordConfig());
-  const [testing, setTesting] = useState(false);
-  const [saved, setSaved] = useState(false);
+export default SettingsPage;
 
-  const update = (patch: Partial<DiscordConfig>) => {
-    const next = { ...cfg, ...patch };
-    setCfg(next);
-    saveDiscordConfig(next);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1500);
+// Admin Access — grant/revoke /admin login for other gmails, live (no code changes).
+// Backed by public.admin_users + the is_current_user_admin / list_admins / add_admin /
+// remove_admin SECURITY DEFINER rpcs. The 4 bootstrap owners in PasswordGate are always
+// allowed and are NOT listed/removable here (they can't be locked out).
+interface AdminRow { email: string; added_by: string | null; created_at: string; }
+function AdminAccessCard() {
+  const [rows, setRows] = useState<AdminRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newEmail, setNewEmail] = useState("");
+  const [adding, setAdding] = useState(false);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc("list_admins");
+    if (error) toast.error(error.message || "Failed to load admins");
+    else setRows((data as AdminRow[]) || []);
+    setLoading(false);
   };
-  const test = async (isShort: boolean) => {
-    if (!cfg.url) { toast.error("Add your webhook URL first."); return; }
-    setTesting(true);
-    const r = await sendDiscordTest(cfg.url, isShort);
-    setTesting(false);
-    if (r.success) toast.success("Test sent — check your Discord channel!");
-    else toast.error("Test failed: " + (r.error || "unknown"));
+  useEffect(() => { load(); }, []);
+
+  const add = async () => {
+    const e = newEmail.trim().toLowerCase();
+    if (!e) return;
+    setAdding(true);
+    const { error } = await supabase.rpc("add_admin", { new_email: e });
+    setAdding(false);
+    if (error) {
+      const m = error.message || "";
+      toast.error(m.includes("invalid_email") ? "That doesn't look like a valid email" : m.includes("not_authorized") ? "You're not authorized to add admins" : m || "Failed to add");
+      return;
+    }
+    toast.success(`${e} can now sign in to /admin`);
+    setNewEmail("");
+    load();
+  };
+
+  const remove = async (email: string) => {
+    const { error } = await supabase.rpc("remove_admin", { rm_email: email });
+    if (error) { toast.error(error.message || "Failed to remove"); return; }
+    toast.success(`Removed ${email}`);
+    setRows((r) => r.filter((x) => x.email !== email));
   };
 
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-6">
-      <div>
-        <h2 className="font-display font-semibold text-foreground flex items-center gap-2"><Bell className="w-4 h-4 text-youtube" /> Discord New-Video Announcer</h2>
-        <p className="text-sm text-muted-foreground mt-1">Auto-post new uploads to Discord with smart pinging — long-form vs Shorts — instead of @everyone for everything.</p>
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mt-6 bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-4">
+      <div className="flex items-center gap-2">
+        <Lock className="w-4 h-4 text-primary" />
+        <h2 className="font-display font-semibold text-foreground">Admin Access</h2>
       </div>
-
+      <p className="text-xs text-muted-foreground">
+        Add a Google account and it can sign in to <span className="font-mono">/admin</span> right away. The site owners are always allowed and aren't shown here.
+      </p>
+      <div className="flex gap-2">
+        <Input
+          type="email"
+          placeholder="name@gmail.com"
+          value={newEmail}
+          onChange={(e) => setNewEmail(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") add(); }}
+          className="flex-1"
+        />
+        <Button onClick={add} disabled={adding || !newEmail.trim()} className="bg-gradient-brand text-primary-foreground hover:opacity-90">
+          {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4 mr-1" /> Grant access</>}
+        </Button>
+      </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium text-foreground">Discord Webhook URL</label>
-        <input type="password" value={cfg.url} onChange={(e) => update({ url: e.target.value.trim() })} placeholder="https://discord.com/api/webhooks/..." className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" />
-        <p className="text-xs text-muted-foreground">Discord → Channel → Edit → Integrations → Webhooks → New Webhook → Copy URL.</p>
-        <div className="flex items-center gap-2 pt-1">
-          <Button size="sm" variant="outline" disabled={testing} onClick={() => test(false)}>{testing ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : null} Test video</Button>
-          <Button size="sm" variant="outline" disabled={testing} onClick={() => test(true)}>Test Short</Button>
-          {saved && <span className="text-xs text-green-500 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> Saved</span>}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className="text-sm font-medium text-foreground">Long-form videos ping</label>
-          <select value={cfg.longPing} onChange={(e) => update({ longPing: e.target.value as DiscordPing })} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">
-            {PING_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="text-sm font-medium text-foreground">Shorts ping</label>
-          <select value={cfg.shortPing} onChange={(e) => update({ shortPing: e.target.value as DiscordPing })} className="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground">
-            {PING_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground -mt-2">Tip: ping @everyone on long-form (where you want views), keep Shorts silent so you don't spam the server.</p>
-
-      <div>
-        <h3 className="text-sm font-semibold text-foreground mb-1">Which channels announce?</h3>
-        <p className="text-xs text-muted-foreground mb-3">On by default once a webhook is set. Turn off any channel you don't want posting to Discord.</p>
-        {channels.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-4 text-center">No connected channels.</p>
-        ) : (
-          <div className="space-y-2">
-            {channels.map((ch) => (
-              <div key={ch.id} className="flex items-center justify-between p-3 rounded-lg bg-muted">
-                <span className="text-sm text-foreground truncate">{ch.channelTitle}</span>
-                <Switch checked={cfg.channels[ch.id] !== false} onCheckedChange={(v) => update({ channels: { ...cfg.channels, [ch.id]: v } })} disabled={!cfg.url} />
-              </div>
-            ))}
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="w-4 h-4 animate-spin" /> Loading…</div>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No extra admins yet — just the owners.</p>
+        ) : rows.map((r) => (
+          <div key={r.email} className="flex items-center justify-between p-3 rounded-lg bg-muted">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">{r.email}</p>
+              <p className="text-xs text-muted-foreground">added by {r.added_by || "?"} · {new Date(r.created_at).toLocaleDateString()}</p>
+            </div>
+            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove(r.email)}>
+              <Trash2 className="w-4 h-4" />
+            </Button>
           </div>
-        )}
+        ))}
       </div>
     </motion.div>
   );
 }
-
-export default SettingsPage;
 
 // Channel bio editor. Reads each connected channel's current YouTube "About" description
 // straight from the API, lets you edit it inline, and writes it back (channels.update

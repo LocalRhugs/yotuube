@@ -538,9 +538,12 @@ const UploadPage = () => {
           if (dest.accessToken) {
             // Per-channel upload mode: 'both' (video+short), 'video' (long only), 'short' (short only).
             const uploadMode: UploadMode = channelModes[dest.id] || 'both';
-            const hasLongSource = !!(videoDuration && videoDuration > 60);
-            const doMainUpload = uploadMode !== 'short' || !hasLongSource; // skip long only when a long source exists AND mode is short-only
-            const doShort = (uploadMode === 'both' || uploadMode === 'short') && hasLongSource;
+            // Route STRICTLY by the chosen mode — do NOT tie it to source length. Bug was:
+            // a <=60s source in "short only" mode uploaded the raw HORIZONTAL file (looked like
+            // long-form) and skipped the vertical conversion. Now "short" ALWAYS makes a vertical
+            // Short via getShortsFile (even for a <=60s clip), and never uploads the raw main.
+            const doMainUpload = uploadMode === 'video' || uploadMode === 'both'; // long/main (raw file)
+            const doShort = uploadMode === 'short' || uploadMode === 'both';      // vertical Short (ffmpeg)
             let res: { success: boolean; videoId?: string; error?: string } = { success: false };
             if (doMainUpload) {
             const asShort = (isShort && videoDuration && videoDuration <= 60) || uploadMode === 'short';

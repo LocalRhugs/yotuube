@@ -4,6 +4,9 @@ import { Lock, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 
+// Bootstrap owners — hardcoded so you can NEVER be locked out even if the DB is unreachable.
+// Everyone else is managed live from Settings → Admin Access (public.admin_users, checked via
+// the is_current_user_admin RPC). Keep these four; add/remove the rest in the UI.
 const ALLOWED_EMAILS = [
   "kimppy444@gmail.com",
   "jessekanhai34@gmail.com",
@@ -15,6 +18,8 @@ const PasswordGate = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // null = not checked yet, true/false = DB allowlist result
+  const [dbAllowed, setDbAllowed] = useState<boolean | null>(null);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
@@ -26,6 +31,16 @@ const PasswordGate = ({ children }: { children: React.ReactNode }) => {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Ask the backend whether the signed-in gmail is in the live admin allowlist.
+  useEffect(() => {
+    if (!session) { setDbAllowed(null); return; }
+    let cancelled = false;
+    supabase.rpc("is_current_user_admin")
+      .then(({ data }) => { if (!cancelled) setDbAllowed(data === true); })
+      .catch(() => { if (!cancelled) setDbAllowed(false); });
+    return () => { cancelled = true; };
+  }, [session]);
 
   const handleSignIn = async () => {
     setError(null);
@@ -48,9 +63,15 @@ const PasswordGate = ({ children }: { children: React.ReactNode }) => {
   }
 
   const email = session?.user?.email?.toLowerCase() ?? null;
-  const allowed = email && ALLOWED_EMAILS.includes(email);
+  const bootstrapAllowed = !!email && ALLOWED_EMAILS.includes(email);
+  const allowed = bootstrapAllowed || dbAllowed === true;
 
   if (session && allowed) return <>{children}</>;
+
+  // Signed in, not a bootstrap owner, still waiting on the DB allowlist check.
+  if (session && !bootstrapAllowed && dbAllowed === null) {
+    return <div className="min-h-screen bg-background flex items-center justify-center"><div className="text-muted-foreground">Checking access…</div></div>;
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">

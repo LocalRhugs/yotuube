@@ -67,20 +67,20 @@ const PLAN_BY_TITLE: Record<string, string> = {
   "obsyn hub": "pt",       // Portuguese
   "xtrin_yiihub": "pt",    // Portuguese/Brazil — aged channel (higher upload trust), given the biggest market
   "kryos hub1": "tl",      // Filipino — aged channel; exact display title is "Kryos Hub1" (with a space)
-  "cinderhex": "ru",       // Russian — the comeback channel (verify exact display title on connect)
+  "cinderhex1": "ru",      // Russian — comeback channel; exact display title is "CINDERHEX1" (with a 1)
   "최고의 로블록스 스크립트": "ko", // stays Korean — it's growing (owner rule); do NOT convert to Indonesian
   "한국어 로블록스 스크립트": "ko", // was "de" — owner staying Korean on both (Korean script vids gain traction as they age)
 };
 
 // One-time forced overrides (bump the version to re-apply to already-seeded channels).
 // Unlike the seed, these OVERWRITE an existing per-channel value, matched by title.
-const OVERRIDE_VERSION = "2026-09-18-ru";
+const OVERRIDE_VERSION = "2026-09-18-ru2";
 const OVERRIDE_KEY = "yt_channel_langs_override_v1";
 const FORCE_BY_TITLE: Record<string, string> = {
   "wickedcode0": "id",         // WICKEDCODE0 = Indonesian
   "xtrin_yiihub": "pt",        // Portuguese/Brazil
   "kryos hub1": "tl",          // Filipino (aged channel) — exact title "Kryos Hub1"
-  "cinderhex": "ru",           // Russian — comeback channel
+  "cinderhex1": "ru",          // Russian — comeback channel; exact title "CINDERHEX1"
   "bestrobloxxscripts": "vi",  // moved off ID -> Vietnamese (WICKEDCODE0 owns ID now)
   "최고의 로블록스 스크립트": "ko",
 };

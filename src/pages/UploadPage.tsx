@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import {
   Upload as UploadIcon, Facebook, Instagram, X, Loader2, CheckCircle2, XCircle, AlertCircle,
-  Scissors, Film, Sparkles, ImageIcon, Trash2, Globe, Lock, Eye, ExternalLink, Tag, Languages, Settings2, ChevronDown
+  Scissors, Film, Sparkles, ImageIcon, Trash2, Globe, Lock, Eye, ExternalLink, Tag, Languages, Settings2, ChevronDown, Clock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -120,6 +120,9 @@ const UploadPage = () => {
   const [channelLangs, setChannelLangs] = useState<Record<string, string>>({});
   // Per-channel upload mode ('both' | 'video' | 'short'). Key = destination id.
   const [channelModes, setChannelModes] = useState<Record<string, UploadMode>>({});
+  // Live per-channel status shown beside each destination during an upload.
+  type DestStage = 'queued' | 'uploading' | 'done' | 'error';
+  const [destStatus, setDestStatus] = useState<Record<string, { stage: DestStage; msg?: string }>>({});
 
   // Per-video script unlock: pick the game (from the key system) → smart-link points at the
   // store's /unlock?u=<universe>, so the gate leads into Linkvertise → reveals THAT game's script.
@@ -340,6 +343,7 @@ const UploadPage = () => {
 
     try {
       const selected = destinations.filter(d => activeAccountIds.includes(d.id));
+      setDestStatus(Object.fromEntries(selected.map(d => [d.id, { stage: 'queued' as const }])));
 
       // The video only needs staging in Supabase Storage for Facebook/Instagram (they pull
       // from a public URL) or a YouTube channel with no OAuth token (server-side fallback).
@@ -423,6 +427,11 @@ const UploadPage = () => {
           const { FFmpeg } = await import("@ffmpeg/ffmpeg");
           const { toBlobURL } = await import("@ffmpeg/util");
           const ffmpeg = new FFmpeg();
+          // Live progress so the encode never looks "stuck" (wasm is slow at high res).
+          ffmpeg.on("progress", ({ progress }: { progress: number }) => {
+            const pct = Math.max(0, Math.min(100, Math.round((progress || 0) * 100)));
+            setUploadProgress(`Creating Shorts version… ${pct}% (encoded once, reused for all channels)`);
+          });
           const hasSharedArrayBuffer = typeof SharedArrayBuffer !== "undefined";
           const mtSources = [
             "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd",
@@ -449,18 +458,21 @@ const UploadPage = () => {
           if (!loaded) throw new Error("FFmpeg failed to load");
           await ffmpeg.writeFile("input.mp4", new Uint8Array(await selectedFile.arrayBuffer()));
           // 9:16 Short with a BLURRED copy of the video as the backdrop (not black bars).
-          // pad= fills black by default — instead we split the frame: one copy fills 1080x1920
+          // pad= fills black by default — instead we split the frame: one copy fills the frame
           // and is heavily downscaled→upscaled (a blur using only universal filters, since the
           // wasm core may lack gblur/boxblur), the other is the sharp video centered on top.
+          // Output is 720x1280 (not 1080x1920) + ultrafast + fps cap: the browser wasm encoder
+          // is ~15x slower than native, so full HD here took ~8 MINUTES; 720p Shorts look the
+          // same on phones and encode ~3x faster. Verified with real ffmpeg (blurred bg, not black).
           await ffmpeg.exec([
             "-i", "input.mp4", "-ss", "0", "-to", customShortsDuration.toString(),
             "-filter_complex",
             "[0:v]split=2[bg][fg];" +
-            "[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,scale=90:160,scale=1080:1920:flags=bilinear,setsar=1[bgb];" +
-            "[fg]scale=1080:1920:force_original_aspect_ratio=decrease[fgs];" +
+            "[bg]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,scale=64:114,scale=720:1280:flags=bilinear,setsar=1[bgb];" +
+            "[fg]scale=720:1280:force_original_aspect_ratio=decrease[fgs];" +
             "[bgb][fgs]overlay=(W-w)/2:(H-h)/2,format=yuv420p[v]",
             "-map", "[v]", "-map", "0:a?",
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-c:a", "aac", "-b:a", "128k", "output.mp4"
+            "-r", "30", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "30", "-c:a", "aac", "-b:a", "128k", "output.mp4"
           ]);
           const shortsData = await ffmpeg.readFile("output.mp4");
           const uint8 = shortsData instanceof Uint8Array ? shortsData : new TextEncoder().encode(shortsData as string);
@@ -474,6 +486,7 @@ const UploadPage = () => {
         const repeatLabel = repeatCount > 1 ? ` (copy ${repeatIdx + 1}/${repeatCount})` : '';
 
       const runDest = async (dest: UploadDestination) => {
+        setDestStatus(p => ({ ...p, [dest.id]: { stage: 'uploading' } }));
         // Resolve this destination's language (only meaningful for YouTube; others get original).
         const destLang = (dest.platform === 'youtube' ? channelLangs[dest.id] : '') || originalLangCode;
         const translated = await getTranslated(destLang);
@@ -784,6 +797,11 @@ const UploadPage = () => {
             publishResults.push({ destinationId: dest.id, destinationName: dest.name, platform: 'YouTube', success: false, error: 'This channel has no upload token — reconnect it in Settings.' });
           }
         }
+        // Final per-channel status from this dest's results (live badge in the picker).
+        const mine = publishResults.filter(r => r.destinationId === dest.id);
+        const ok = mine.length > 0 && mine.every(r => r.success);
+        const failMsg = mine.find(r => !r.success)?.error;
+        setDestStatus(p => ({ ...p, [dest.id]: { stage: ok ? 'done' : 'error', msg: ok ? undefined : failMsg } }));
       };
 
       // Dispatch: non-YouTube destinations run sequentially; YouTube destinations run
@@ -1312,7 +1330,23 @@ const UploadPage = () => {
                 )}
                 <div className="flex flex-col min-w-0 flex-1 cursor-pointer" onClick={() => !uploading && toggleAccount(dest.id)}>
                   <span className="text-sm font-medium text-foreground truncate">{dest.name}</span>
-                  <span className="text-xs text-muted-foreground capitalize">{dest.platform}</span>
+                  <span className="text-xs text-muted-foreground capitalize flex items-center gap-1">
+                    {dest.platform}
+                    {destStatus[dest.id] && (
+                      <span className="flex items-center gap-1 ml-1"
+                        title={destStatus[dest.id].msg || destStatus[dest.id].stage}>
+                        {destStatus[dest.id].stage === 'uploading' ? (
+                          <><Loader2 className="w-3 h-3 animate-spin text-primary" /><span className="text-primary">uploading…</span></>
+                        ) : destStatus[dest.id].stage === 'done' ? (
+                          <><CheckCircle2 className="w-3 h-3 text-green-500" /><span className="text-green-500">done</span></>
+                        ) : destStatus[dest.id].stage === 'error' ? (
+                          <><XCircle className="w-3 h-3 text-destructive" /><span className="text-destructive truncate max-w-[140px]">failed</span></>
+                        ) : (
+                          <><Clock className="w-3 h-3" /><span>queued</span></>
+                        )}
+                      </span>
+                    )}
+                  </span>
                 </div>
                 {dest.platform === 'youtube' && selectedAccounts.includes(dest.id) && (
                   <select

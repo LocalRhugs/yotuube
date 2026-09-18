@@ -635,7 +635,9 @@ const SettingsPage = () => {
         </TabsContent>
 
         <TabsContent value="general">
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-5">
+          <AdminAccessCard />
+
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mt-6 bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-5">
             <h2 className="font-display font-semibold text-foreground">General Settings</h2>
             <div className="space-y-4">
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted">
@@ -651,8 +653,6 @@ const SettingsPage = () => {
 
             <SmartLinkAnalytics />
           </motion.div>
-
-          <AdminAccessCard />
         </TabsContent>
       </Tabs>
     </div>

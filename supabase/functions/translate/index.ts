@@ -16,6 +16,8 @@ const ENDPOINTS: Record<string, string> = {
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
   pollinations: 'https://gen.pollinations.ai/v1/chat/completions',
   groq: 'https://api.groq.com/openai/v1/chat/completions',
+  // Gemini via Google's OpenAI-compatible endpoint (Bearer <key> + /chat/completions).
+  gemini: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
 };
 
 function keysFor(provider: string): string[] {
@@ -24,6 +26,19 @@ function keysFor(provider: string): string[] {
   }
   if (provider === 'pollinations') return [Deno.env.get('POLLINATIONS_API_KEY')].filter(Boolean) as string[];
   if (provider === 'groq') return [Deno.env.get('GROQ_API_KEY')].filter(Boolean) as string[];
+  if (provider === 'gemini') {
+    // All Gemini keys live in one secret GEMINI_API_KEYS (comma/newline separated);
+    // the individual GEMINI_API_KEY[_n] are also honored for backward-compat.
+    const bulk = (Deno.env.get('GEMINI_API_KEYS') || '').split(/[,\n]+/).map((s) => s.trim()).filter(Boolean);
+    const singles = [
+      Deno.env.get('GEMINI_API_KEY'), Deno.env.get('GEMINI_API_KEY_2'),
+      Deno.env.get('GEMINI_API_KEY_3'), Deno.env.get('GEMINI_API_KEY_4'),
+    ].filter(Boolean) as string[];
+    const all = [...new Set([...bulk, ...singles])];
+    // Shuffle so heavy usage spreads across all keys instead of always starting at #1.
+    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [all[i], all[j]] = [all[j], all[i]]; }
+    return all;
+  }
   return [];
 }
 
@@ -36,7 +51,7 @@ serve(async (req) => {
   try {
     if (req.method !== 'POST') return err('Method not allowed', 405);
 
-    const { text, targetLanguage, sourceLanguage = 'English', provider = 'pollinations', model } = await req.json();
+    const { text, targetLanguage, sourceLanguage = 'English', provider = 'pollinations', model, mode = 'translate' } = await req.json();
     if (!text || !targetLanguage) return err('Missing required fields: text and targetLanguage');
     if (text.length > 5000) return err('Text too long. Maximum 5000 characters per request.');
     if (!model) return err('model is required');
@@ -46,7 +61,16 @@ serve(async (req) => {
     const keys = keysFor(provider);
     if (!keys.length) return err(`No API key configured for ${provider}. Add its secret in Supabase.`, 500);
 
-    const systemPrompt = `You are a professional translator. Translate the provided text accurately from ${sourceLanguage} to ${targetLanguage}. Return ONLY the translated text — no explanations, no quotes, no extra formatting. Preserve line breaks, emojis, hashtags, @mentions, URLs, and any %s / {} placeholders exactly as they appear.`;
+    // mode 'translate' (default): faithful translation. mode 'rewrite': generate a FRESH, unique
+    // variant per channel (reworded, same meaning/keywords) THEN in the target language — used to
+    // de-template a multi-channel network so no two channels share identical metadata.
+    const translatePrompt = `You are a professional translator. Translate the provided text accurately from ${sourceLanguage} to ${targetLanguage}. Return ONLY the translated text — no explanations, no quotes, no extra formatting. Preserve line breaks, emojis, hashtags, @mentions, URLs, and any %s / {} placeholders exactly as they appear.`;
+    const rewritePrompt = `You are a YouTube growth copywriter for Roblox script videos. Rewrite the given ${sourceLanguage} text into ${targetLanguage} as a FRESH, UNIQUE variant: reword it (different structure, synonyms, reordered) so it does NOT read as a copy of the original, while keeping the SAME meaning, the SAME game and the SAME features/keywords. Keep it punchy and SEO-strong for the Roblox scripting audience.
+Keep every emoji, #hashtag, @mention, URL and %s / {} placeholder intact. Keep selling terms like "No Key", "2026", "Mobile", "Auto Farm", the feature names, and the game name. Output ONLY the final ${targetLanguage} text — no quotes, no notes, no "here is".
+Examples of the KIND of rewording (English shown; you must OUTPUT in ${targetLanguage}):
+- "BEST Steal An Egg Script — Instant Steal, Egg ESP, Auto Farm (No Key) | Mobile" -> "Steal An Egg Script (No Key) — Auto Farm + Egg ESP + Instant Steal, works on Mobile 2026"
+- "Kaiju Alpha Script | Auto Farm, Auto Beam, Inf Energy - No Key" -> "NEW Kaiju Alpha Script: Inf Energy, Auto Beam & Auto Farm | No Key Needed"`;
+    const systemPrompt = mode === 'rewrite' ? rewritePrompt : translatePrompt;
 
     // Claude on OpenRouter must not stream in this setup and works best capped ~2k tokens.
     const isClaude = /claude/i.test(String(model));
@@ -70,7 +94,7 @@ serve(async (req) => {
               { role: 'system', content: systemPrompt },
               { role: 'user', content: text },
             ],
-            temperature: 0,
+            temperature: mode === 'rewrite' ? 0.9 : 0,
             max_tokens: isClaude ? 2000 : 4096,
             stream: false,
             ...(provider === 'pollinations' && { private: true }),

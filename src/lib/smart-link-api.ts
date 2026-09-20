@@ -270,7 +270,8 @@ export async function translateText(
   text: string,
   targetLanguage: string,
   sourceLanguage = "en",
-  override?: string
+  override?: string,
+  mode: "translate" | "rewrite" = "translate"
 ): Promise<{ success: boolean; translatedText?: string; error?: string }> {
   const chosen = override || getTranslateProvider();
 
@@ -280,7 +281,7 @@ export async function translateText(
     const model = idx > 0 ? spec.slice(idx + 1) : spec;
     try {
       const { data, error } = await supabase.functions.invoke('translate', {
-        body: { text, targetLanguage, sourceLanguage, provider, model },
+        body: { text, targetLanguage, sourceLanguage, provider, model, mode },
       });
       if (error || !data?.success) {
         const context = (error as any)?.context;

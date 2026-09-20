@@ -125,6 +125,9 @@ const UploadPage = () => {
   const [destStatus, setDestStatus] = useState<Record<string, { stage: DestStage; msg?: string }>>({});
   // Slice mode: cut one long video into a unique segment per selected YouTube channel.
   const [sliceMode, setSliceMode] = useState(false);
+  // Unique variant: have the AI rewrite a distinct title/description per channel (then localize),
+  // instead of translating the same base — extra de-templating for the multi-channel network.
+  const [uniqueVariant, setUniqueVariant] = useState(false);
 
   // Per-video script unlock: pick the game (from the key system) → smart-link points at the
   // store's /unlock?u=<universe>, so the gate leads into Linkvertise → reveals THAT game's script.
@@ -382,13 +385,14 @@ const UploadPage = () => {
         [originalLangCode]: { title, description },
       };
 
+      const tMode: "translate" | "rewrite" = uniqueVariant ? "rewrite" : "translate";
       const getTranslated = async (targetLang: string) => {
         if (!targetLang || targetLang === originalLangCode) return translationCache[originalLangCode];
         if (translationCache[targetLang]) return translationCache[targetLang];
-        setUploadProgress(`Translating to ${targetLang.toUpperCase()}...`);
+        setUploadProgress(uniqueVariant ? `Writing a unique variant in ${targetLang.toUpperCase()}...` : `Translating to ${targetLang.toUpperCase()}...`);
         const [tRes, dRes] = await Promise.all([
-          translateText(title, targetLang, originalLangCode),
-          description ? translateText(description, targetLang, originalLangCode) : Promise.resolve({ success: true, translatedText: '' } as any),
+          translateText(title, targetLang, originalLangCode, undefined, tMode),
+          description ? translateText(description, targetLang, originalLangCode, undefined, tMode) : Promise.resolve({ success: true, translatedText: '' } as any),
         ]);
         if (!tRes.success) toast.warning(`Title translation to ${targetLang} failed: ${tRes.error}. Using original.`);
         const result = {
@@ -1363,6 +1367,15 @@ const UploadPage = () => {
           <div>
             <div className="text-sm font-medium text-foreground flex items-center gap-2"><Scissors className="w-4 h-4 text-primary" /> Slice long video across channels</div>
             <div className="text-xs text-muted-foreground">Cuts ONE long recording into a unique segment per selected YouTube channel — each gets its own clip + Short, so no two channels share footage (anti duplicate-content). Segments are assigned in the channel order below. Needs 2+ YouTube channels.</div>
+          </div>
+        </label>
+
+        {/* Unique variant: AI rewrites a distinct title/description per channel (then localizes) */}
+        <label className="flex items-start gap-3 mb-3 p-3 rounded-lg border border-primary/30 bg-primary/5 cursor-pointer">
+          <input type="checkbox" checked={uniqueVariant} onChange={e => setUniqueVariant(e.target.checked)} disabled={uploading} className="rounded w-4 h-4 mt-0.5" />
+          <div>
+            <div className="text-sm font-medium text-foreground flex items-center gap-2"><Sparkles className="w-4 h-4 text-primary" /> Unique title & description per channel</div>
+            <div className="text-xs text-muted-foreground">Instead of translating the same base, the AI writes a FRESH reworded variant for each channel (keeping keywords like No Key / features / 2026) then localizes it — so no two channels share identical metadata. Extra insurance against the "templated network" flag.</div>
           </div>
         </label>
 

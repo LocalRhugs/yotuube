@@ -123,6 +123,8 @@ const UploadPage = () => {
   // Live per-channel status shown beside each destination during an upload.
   type DestStage = 'queued' | 'uploading' | 'done' | 'error';
   const [destStatus, setDestStatus] = useState<Record<string, { stage: DestStage; msg?: string }>>({});
+  // Slice mode: cut one long video into a unique segment per selected YouTube channel.
+  const [sliceMode, setSliceMode] = useState(false);
 
   // Per-video script unlock: pick the game (from the key system) → smart-link points at the
   // store's /unlock?u=<universe>, so the gate leads into Linkvertise → reveals THAT game's script.
@@ -415,22 +417,27 @@ const UploadPage = () => {
         return out;
       };
 
-      // Shorts encode is IDENTICAL for every channel (same source clip, same duration,
-      // same scale/pad) — so encode ONCE and reuse the resulting File for all destinations
-      // instead of re-running FFmpeg per channel. Memoized: the first caller does the work,
-      // everyone else awaits the same promise.
-      let shortsFilePromise: Promise<File> | null = null;
-      const getShortsFile = (): Promise<File> => {
-        if (shortsFilePromise) return shortsFilePromise;
-        shortsFilePromise = (async () => {
-          setUploadProgress("Creating Shorts version (once, reused for all channels)...");
+      // ---- Shared in-browser FFmpeg: loaded ONCE, input.mp4 written once, reused for the
+      // single-Short encode AND per-channel slicing. 9:16 Short uses a BLURRED copy of the
+      // video as the backdrop (pad= fills black; we split the frame, downscale→upscale one copy
+      // as a wasm-safe blur, and center the sharp video on top). Output 720x1280 + ultrafast:
+      // browser wasm is ~15x slower than native, so full HD took ~8min; 720p looks the same on
+      // phones. All filter args verified with real ffmpeg (blurred bg, not black).
+      const SHORT_FILTER =
+        "[0:v]split=2[bg][fg];" +
+        "[bg]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,scale=64:114,scale=720:1280:flags=bilinear,setsar=1[bgb];" +
+        "[fg]scale=720:1280:force_original_aspect_ratio=decrease[fgs];" +
+        "[bgb][fgs]overlay=(W-w)/2:(H-h)/2,format=yuv420p[v]";
+      let ffmpegPromise: Promise<any> | null = null;
+      const getFFmpeg = () => {
+        if (ffmpegPromise) return ffmpegPromise;
+        ffmpegPromise = (async () => {
           const { FFmpeg } = await import("@ffmpeg/ffmpeg");
           const { toBlobURL } = await import("@ffmpeg/util");
           const ffmpeg = new FFmpeg();
-          // Live progress so the encode never looks "stuck" (wasm is slow at high res).
           ffmpeg.on("progress", ({ progress }: { progress: number }) => {
             const pct = Math.max(0, Math.min(100, Math.round((progress || 0) * 100)));
-            setUploadProgress(`Creating Shorts version… ${pct}% (encoded once, reused for all channels)`);
+            setUploadProgress(`Processing video… ${pct}%`);
           });
           const hasSharedArrayBuffer = typeof SharedArrayBuffer !== "undefined";
           const mtSources = [
@@ -457,30 +464,74 @@ const UploadPage = () => {
           }
           if (!loaded) throw new Error("FFmpeg failed to load");
           await ffmpeg.writeFile("input.mp4", new Uint8Array(await selectedFile.arrayBuffer()));
-          // 9:16 Short with a BLURRED copy of the video as the backdrop (not black bars).
-          // pad= fills black by default — instead we split the frame: one copy fills the frame
-          // and is heavily downscaled→upscaled (a blur using only universal filters, since the
-          // wasm core may lack gblur/boxblur), the other is the sharp video centered on top.
-          // Output is 720x1280 (not 1080x1920) + ultrafast + fps cap: the browser wasm encoder
-          // is ~15x slower than native, so full HD here took ~8 MINUTES; 720p Shorts look the
-          // same on phones and encode ~3x faster. Verified with real ffmpeg (blurred bg, not black).
+          return ffmpeg;
+        })();
+        return ffmpegPromise;
+      };
+      const readOut = async (ffmpeg: any, name: string, label: string): Promise<File> => {
+        const data = await ffmpeg.readFile(name);
+        const u8 = data instanceof Uint8Array ? data : new TextEncoder().encode(data as string);
+        return new File([new Blob([new Uint8Array(u8)], { type: "video/mp4" })], `${label}_${selectedFile.name}`, { type: "video/mp4" });
+      };
+
+      // Single Short from the FULL source (used when NOT slicing) — encoded once, reused for all channels.
+      let shortsFilePromise: Promise<File> | null = null;
+      const getShortsFile = (): Promise<File> => {
+        if (shortsFilePromise) return shortsFilePromise;
+        shortsFilePromise = (async () => {
+          setUploadProgress("Creating Shorts version…");
+          const ffmpeg = await getFFmpeg();
           await ffmpeg.exec([
             "-i", "input.mp4", "-ss", "0", "-to", customShortsDuration.toString(),
-            "-filter_complex",
-            "[0:v]split=2[bg][fg];" +
-            "[bg]scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,scale=64:114,scale=720:1280:flags=bilinear,setsar=1[bgb];" +
-            "[fg]scale=720:1280:force_original_aspect_ratio=decrease[fgs];" +
-            "[bgb][fgs]overlay=(W-w)/2:(H-h)/2,format=yuv420p[v]",
-            "-map", "[v]", "-map", "0:a?",
-            "-r", "30", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "30", "-c:a", "aac", "-b:a", "128k", "output.mp4"
+            "-filter_complex", SHORT_FILTER, "-map", "[v]", "-map", "0:a?",
+            "-r", "30", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "30", "-c:a", "aac", "-b:a", "128k", "short_full.mp4",
           ]);
-          const shortsData = await ffmpeg.readFile("output.mp4");
-          const uint8 = shortsData instanceof Uint8Array ? shortsData : new TextEncoder().encode(shortsData as string);
-          const shortsBlob = new Blob([new Uint8Array(uint8)], { type: "video/mp4" });
-          return new File([shortsBlob], `shorts_${selectedFile.name}`, { type: "video/mp4" });
+          return readOut(ffmpeg, "short_full.mp4", "shorts");
         })();
         return shortsFilePromise;
       };
+
+      // SLICE MODE: split the source into `total` equal segments so EACH channel gets its OWN
+      // unique clip (kills the duplicate-content risk that terminated the old channels). Slice
+      // `index` = [start, start+seg). Returns the horizontal main (fast stream-copy, no re-encode)
+      // + a vertical blurred Short cut from the same segment. Memoized per index.
+      const sliceCache: Record<string, Promise<{ main: File; short: File }>> = {};
+      const getSlice = (index: number, total: number) => {
+        const key = `${index}/${total}`;
+        if (sliceCache[key]) return sliceCache[key];
+        sliceCache[key] = (async () => {
+          const dur = videoDuration || 0;
+          const seg = total > 0 && dur > 0 ? dur / total : dur;
+          const start = seg * index;
+          const ffmpeg = await getFFmpeg();
+          setUploadProgress(`Slicing clip ${index + 1}/${total}…`);
+          // Stream-copy rounds cuts to keyframes and overshoots, so leave a small guard gap at
+          // the end of each requested window → adjacent slices don't share footage (no dup risk).
+          const guard = seg > 0 ? Math.min(3, seg * 0.1) : 0;
+          const mainLen = seg > 0 ? Math.max(1, seg - guard) : 0;
+          const mainArgs = ["-ss", start.toFixed(2), "-i", "input.mp4"];
+          if (mainLen > 0) mainArgs.push("-t", mainLen.toFixed(2));
+          mainArgs.push("-c", "copy", "-avoid_negative_ts", "make_zero", `main_${index}.mp4`);
+          await ffmpeg.exec(mainArgs);
+          const main = await readOut(ffmpeg, `main_${index}.mp4`, `slice${index + 1}`);
+          const shortLen = Math.min(customShortsDuration, mainLen > 0 ? mainLen : customShortsDuration);
+          setUploadProgress(`Creating Short for clip ${index + 1}/${total}…`);
+          await ffmpeg.exec([
+            "-ss", start.toFixed(2), "-i", "input.mp4", "-t", shortLen.toFixed(2),
+            "-filter_complex", SHORT_FILTER, "-map", "[v]", "-map", "0:a?",
+            "-r", "30", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "30", "-c:a", "aac", "-b:a", "128k", `short_${index}.mp4`,
+          ]);
+          const short = await readOut(ffmpeg, `short_${index}.mp4`, `slice${index + 1}_short`);
+          return { main, short };
+        })();
+        return sliceCache[key];
+      };
+
+      // Per-YouTube-channel slice assignment (only used when Slice Mode is on with 2+ channels).
+      const ytSliceDests = selected.filter(d => d.platform === 'youtube');
+      const sliceIndexById: Record<string, number> = Object.fromEntries(ytSliceDests.map((d, i) => [d.id, i]));
+      const totalSlices = ytSliceDests.length;
+      const doSlice = sliceMode && totalSlices > 1 && (videoDuration || 0) > 0;
 
       for (let repeatIdx = 0; repeatIdx < repeatCount; repeatIdx++) {
         const repeatLabel = repeatCount > 1 ? ` (copy ${repeatIdx + 1}/${repeatCount})` : '';
@@ -549,6 +600,10 @@ const UploadPage = () => {
           }
           // Use direct upload if we have an access token
           if (dest.accessToken) {
+            // SLICE MODE: this channel gets its OWN unique segment of the long video (main + its
+            // own Short). Falls back to the full video / shared Short when slicing is off.
+            const slice = doSlice ? await getSlice(sliceIndexById[dest.id], totalSlices) : null;
+            const mainSource = slice ? slice.main : selectedFile;
             // Per-channel upload mode: 'both' (video+short), 'video' (long only), 'short' (short only).
             const uploadMode: UploadMode = channelModes[dest.id] || 'both';
             // Route STRICTLY by the chosen mode — do NOT tie it to source length. Bug was:
@@ -562,7 +617,7 @@ const UploadPage = () => {
             const asShort = (isShort && videoDuration && videoDuration <= 60) || uploadMode === 'short';
             const finalTitle = asShort ? `${title} #Shorts` : title;
             const finalDesc = asShort ? `${description}\n\n#Shorts` : description;
-            const ytUploadOnce = () => uploadVideoToYouTube(dest.accessToken!, selectedFile, {
+            const ytUploadOnce = () => uploadVideoToYouTube(dest.accessToken!, mainSource, {
               title: finalTitle, description: finalDesc,
               tags: selectedTags, categoryId: category, privacyStatus: privacy,
               allowComments, allowRatings,
@@ -707,8 +762,8 @@ const UploadPage = () => {
             // Shorts upload — for 'both' (needs the long upload to have succeeded) or 'short' (always).
             if (doShort && (uploadMode === 'short' || res.success)) {
               try {
-                // Reuse the single pre-encoded Short (encoded once, shared across all channels).
-                const shortsFile = await getShortsFile();
+                // Slice mode: this channel's OWN Short from its segment. Else the shared single Short.
+                const shortsFile = slice ? slice.short : await getShortsFile();
 
                 setUploadProgress(`Uploading Shorts version to ${dest.name}...`);
                 const shortsTitle = `${title} #Shorts`;
@@ -1301,6 +1356,15 @@ const UploadPage = () => {
             )}
           </div>
         </div>
+
+        {/* Slice mode: one long video → a unique segment per selected YouTube channel */}
+        <label className="flex items-start gap-3 mb-3 p-3 rounded-lg border border-primary/30 bg-primary/5 cursor-pointer">
+          <input type="checkbox" checked={sliceMode} onChange={e => setSliceMode(e.target.checked)} disabled={uploading} className="rounded w-4 h-4 mt-0.5" />
+          <div>
+            <div className="text-sm font-medium text-foreground flex items-center gap-2"><Scissors className="w-4 h-4 text-primary" /> Slice long video across channels</div>
+            <div className="text-xs text-muted-foreground">Cuts ONE long recording into a unique segment per selected YouTube channel — each gets its own clip + Short, so no two channels share footage (anti duplicate-content). Segments are assigned in the channel order below. Needs 2+ YouTube channels.</div>
+          </div>
+        </label>
 
         {loadingDestinations ? (
           <div className="flex items-center justify-center py-8">

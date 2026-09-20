@@ -128,6 +128,8 @@ const UploadPage = () => {
   // Unique variant: have the AI rewrite a distinct title/description per channel (then localize),
   // instead of translating the same base — extra de-templating for the multi-channel network.
   const [uniqueVariant, setUniqueVariant] = useState(false);
+  // Shorts per channel: post N DISTINCT shorts (different windows of the footage) per channel.
+  const [shortsCopies, setShortsCopies] = useState(1);
 
   // Per-video script unlock: pick the game (from the key system) → smart-link points at the
   // store's /unlock?u=<universe>, so the gate leads into Linkvertise → reveals THAT game's script.
@@ -478,64 +480,66 @@ const UploadPage = () => {
         return new File([new Blob([new Uint8Array(u8)], { type: "video/mp4" })], `${label}_${selectedFile.name}`, { type: "video/mp4" });
       };
 
-      // Single Short from the FULL source (used when NOT slicing) — encoded once, reused for all channels.
-      let shortsFilePromise: Promise<File> | null = null;
-      const getShortsFile = (): Promise<File> => {
-        if (shortsFilePromise) return shortsFilePromise;
-        shortsFilePromise = (async () => {
-          setUploadProgress("Creating Shorts version…");
+      // Per-YouTube-channel slice assignment (used when Slice Mode is on with 2+ channels).
+      const ytSliceDests = selected.filter(d => d.platform === 'youtube');
+      const sliceIndexById: Record<string, number> = Object.fromEntries(ytSliceDests.map((d, i) => [d.id, i]));
+      const totalSlices = ytSliceDests.length;
+      const doSlice = sliceMode && totalSlices > 1 && (videoDuration || 0) > 0;
+
+      // Cut a vertical blurred Short from [startSec, startSec+lenSec] of the source. Memoized per window.
+      const shortCache: Record<string, Promise<File>> = {};
+      const getShortSegment = (startSec: number, lenSec: number): Promise<File> => {
+        const key = `${startSec.toFixed(2)}_${lenSec.toFixed(2)}`;
+        if (shortCache[key]) return shortCache[key];
+        shortCache[key] = (async () => {
           const ffmpeg = await getFFmpeg();
+          const out = `short_${key.replace(/\./g, "p")}.mp4`;
           await ffmpeg.exec([
-            "-i", "input.mp4", "-ss", "0", "-to", customShortsDuration.toString(),
+            "-ss", startSec.toFixed(2), "-i", "input.mp4", "-t", lenSec.toFixed(2),
             "-filter_complex", SHORT_FILTER, "-map", "[v]", "-map", "0:a?",
-            "-r", "30", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "30", "-c:a", "aac", "-b:a", "128k", "short_full.mp4",
+            "-r", "30", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "30", "-c:a", "aac", "-b:a", "128k", out,
           ]);
-          return readOut(ffmpeg, "short_full.mp4", "shorts");
+          return readOut(ffmpeg, out, "short");
         })();
-        return shortsFilePromise;
+        return shortCache[key];
       };
 
-      // SLICE MODE: split the source into `total` equal segments so EACH channel gets its OWN
-      // unique clip (kills the duplicate-content risk that terminated the old channels). Slice
-      // `index` = [start, start+seg). Returns the horizontal main (fast stream-copy, no re-encode)
-      // + a vertical blurred Short cut from the same segment. Memoized per index.
-      const sliceCache: Record<string, Promise<{ main: File; short: File }>> = {};
-      const getSlice = (index: number, total: number) => {
+      // SLICE MODE main clip (horizontal, fast stream-copy of this channel's segment). Shorts come
+      // from getShortSegment so "shorts per channel" can pull multiple DISTINCT windows.
+      const sliceMainCache: Record<string, Promise<File>> = {};
+      const getSliceMain = (index: number, total: number): Promise<File> => {
         const key = `${index}/${total}`;
-        if (sliceCache[key]) return sliceCache[key];
-        sliceCache[key] = (async () => {
+        if (sliceMainCache[key]) return sliceMainCache[key];
+        sliceMainCache[key] = (async () => {
           const dur = videoDuration || 0;
           const seg = total > 0 && dur > 0 ? dur / total : dur;
           const start = seg * index;
           const ffmpeg = await getFFmpeg();
           setUploadProgress(`Slicing clip ${index + 1}/${total}…`);
-          // Stream-copy rounds cuts to keyframes and overshoots, so leave a small guard gap at
-          // the end of each requested window → adjacent slices don't share footage (no dup risk).
           const guard = seg > 0 ? Math.min(3, seg * 0.1) : 0;
           const mainLen = seg > 0 ? Math.max(1, seg - guard) : 0;
-          const mainArgs = ["-ss", start.toFixed(2), "-i", "input.mp4"];
-          if (mainLen > 0) mainArgs.push("-t", mainLen.toFixed(2));
-          mainArgs.push("-c", "copy", "-avoid_negative_ts", "make_zero", `main_${index}.mp4`);
-          await ffmpeg.exec(mainArgs);
-          const main = await readOut(ffmpeg, `main_${index}.mp4`, `slice${index + 1}`);
-          const shortLen = Math.min(customShortsDuration, mainLen > 0 ? mainLen : customShortsDuration);
-          setUploadProgress(`Creating Short for clip ${index + 1}/${total}…`);
-          await ffmpeg.exec([
-            "-ss", start.toFixed(2), "-i", "input.mp4", "-t", shortLen.toFixed(2),
-            "-filter_complex", SHORT_FILTER, "-map", "[v]", "-map", "0:a?",
-            "-r", "30", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "30", "-c:a", "aac", "-b:a", "128k", `short_${index}.mp4`,
-          ]);
-          const short = await readOut(ffmpeg, `short_${index}.mp4`, `slice${index + 1}_short`);
-          return { main, short };
+          const args = ["-ss", start.toFixed(2), "-i", "input.mp4"];
+          if (mainLen > 0) args.push("-t", mainLen.toFixed(2));
+          args.push("-c", "copy", "-avoid_negative_ts", "make_zero", `main_${index}.mp4`);
+          await ffmpeg.exec(args);
+          return readOut(ffmpeg, `main_${index}.mp4`, `slice${index + 1}`);
         })();
-        return sliceCache[key];
+        return sliceMainCache[key];
       };
 
-      // Per-YouTube-channel slice assignment (only used when Slice Mode is on with 2+ channels).
-      const ytSliceDests = selected.filter(d => d.platform === 'youtube');
-      const sliceIndexById: Record<string, number> = Object.fromEntries(ytSliceDests.map((d, i) => [d.id, i]));
-      const totalSlices = ytSliceDests.length;
-      const doSlice = sliceMode && totalSlices > 1 && (videoDuration || 0) > 0;
+      // N Short windows for a channel: N DIFFERENT sub-clips from its footage (its slice segment,
+      // or the whole video) so "shorts per channel = 2" posts 2 DISTINCT shorts (more algorithm
+      // shots), not a same-video dupe on the channel.
+      const shortWindows = (index: number, total: number, n: number) => {
+        const dur = videoDuration || 0;
+        const seg = doSlice && total > 0 ? dur / total : dur;
+        const winStart = doSlice && total > 0 ? (dur / total) * index : 0;
+        const per = n > 0 && seg > 0 ? seg / n : seg;
+        const len = seg > 0 ? Math.max(3, Math.min(customShortsDuration, per - Math.min(2, per * 0.1))) : customShortsDuration;
+        const wins: { start: number; len: number }[] = [];
+        for (let i = 0; i < n; i++) wins.push({ start: seg > 0 ? Math.max(0, winStart + i * per) : 0, len });
+        return wins;
+      };
 
       for (let repeatIdx = 0; repeatIdx < repeatCount; repeatIdx++) {
         const repeatLabel = repeatCount > 1 ? ` (copy ${repeatIdx + 1}/${repeatCount})` : '';
@@ -606,8 +610,7 @@ const UploadPage = () => {
           if (dest.accessToken) {
             // SLICE MODE: this channel gets its OWN unique segment of the long video (main + its
             // own Short). Falls back to the full video / shared Short when slicing is off.
-            const slice = doSlice ? await getSlice(sliceIndexById[dest.id], totalSlices) : null;
-            const mainSource = slice ? slice.main : selectedFile;
+            const mainSource = doSlice ? await getSliceMain(sliceIndexById[dest.id], totalSlices) : selectedFile;
             // Per-channel upload mode: 'both' (video+short), 'video' (long only), 'short' (short only).
             const uploadMode: UploadMode = channelModes[dest.id] || 'both';
             // Route STRICTLY by the chosen mode — do NOT tie it to source length. Bug was:
@@ -765,11 +768,13 @@ const UploadPage = () => {
 
             // Shorts upload — for 'both' (needs the long upload to have succeeded) or 'short' (always).
             if (doShort && (uploadMode === 'short' || res.success)) {
+              const shortWins = shortWindows(sliceIndexById[dest.id] ?? 0, totalSlices, Math.max(1, Math.min(3, shortsCopies)));
+              for (let scIdx = 0; scIdx < shortWins.length; scIdx++) {
               try {
-                // Slice mode: this channel's OWN Short from its segment. Else the shared single Short.
-                const shortsFile = slice ? slice.short : await getShortsFile();
+                // Each copy = a DIFFERENT window of the footage (not a same-video dupe) → more shots.
+                const shortsFile = await getShortSegment(shortWins[scIdx].start, shortWins[scIdx].len);
 
-                setUploadProgress(`Uploading Shorts version to ${dest.name}...`);
+                setUploadProgress(`Uploading Short ${scIdx + 1}/${shortWins.length} to ${dest.name}...`);
                 const shortsTitle = `${title} #Shorts`;
                 const shortsDesc = `${description}\n\n#Shorts`;
                 const shortsRes = await uploadVideoToYouTube(dest.accessToken, shortsFile, {
@@ -839,15 +844,16 @@ const UploadPage = () => {
                 }
 
                 publishResults.push({
-                  destinationId: dest.id, destinationName: `${dest.name} (Short)`, platform: 'YouTube',
+                  destinationId: dest.id, destinationName: `${dest.name} (Short${shortWins.length > 1 ? ' ' + (scIdx + 1) : ''})`, platform: 'YouTube',
                   success: shortsRes.success, error: shortsRes.error, videoId: shortsRes.videoId,
                 });
               } catch (err: any) {
                 publishResults.push({
-                  destinationId: dest.id, destinationName: `${dest.name} (Short)`, platform: 'YouTube',
+                  destinationId: dest.id, destinationName: `${dest.name} (Short${shortWins.length > 1 ? ' ' + (scIdx + 1) : ''})`, platform: 'YouTube',
                   success: false, error: `Shorts creation failed: ${err.message}`,
                 });
               }
+              } // end shorts-copies loop
             }
           } else if (storagePath) {
             const res = await uploadToYouTube(storagePath, title, description, selectedTags, privacy);
@@ -1378,6 +1384,21 @@ const UploadPage = () => {
             <div className="text-xs text-muted-foreground">Instead of translating the same base, the AI writes a FRESH reworded variant for each channel (keeping keywords like No Key / features / 2026) then localizes it — so no two channels share identical metadata. Extra insurance against the "templated network" flag.</div>
           </div>
         </label>
+
+        {/* Shorts per channel: N distinct shorts (different footage windows) per channel */}
+        <div className="flex items-center justify-between mb-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
+          <div className="flex items-start gap-3">
+            <Film className="w-4 h-4 text-primary mt-0.5" />
+            <div>
+              <div className="text-sm font-medium text-foreground">Shorts per channel</div>
+              <div className="text-xs text-muted-foreground">Post multiple Shorts to each channel — each one a DIFFERENT slice of the footage (not the same clip twice), for extra shots at the Shorts algorithm. The long-form still posts once.</div>
+            </div>
+          </div>
+          <input type="number" min={1} max={3} value={shortsCopies}
+            onChange={e => setShortsCopies(Math.max(1, Math.min(3, parseInt(e.target.value) || 1)))}
+            disabled={uploading}
+            className="w-16 h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground text-center" />
+        </div>
 
         {loadingDestinations ? (
           <div className="flex items-center justify-center py-8">

@@ -22,6 +22,8 @@ const CPA_PUBKEY = "62e21ef56139a78f56a8d036104e6947";
 const FEED_BASE = "https://www.cpagrip.com/common/offer_feed_json.php";
 // Supabase (yotuube backend) edge fn that the CPAGrip Global Postback hits.
 const STATUS_URL = "https://hkspkqbnjdkwyyvxqglv.supabase.co/functions/v1/cpa-status";
+// Server-side proxy (private key) to force a geo's offers for TESTING (?geo=US).
+const OFFERS_PROXY = "https://hkspkqbnjdkwyyvxqglv.supabase.co/functions/v1/cpa-offers";
 // Where the user lands once unlocked (placeholder until wired into the real funnel).
 const UNLOCK_DEST = "https://combowick.com";
 
@@ -65,6 +67,12 @@ function makeSubid(): string {
 
 export default function CpaTestPage() {
   const subid = useMemo(makeSubid, []);
+  // TEST-ONLY geo override: /cpatest?geo=US shows that country's offers (via
+  // server-side private-key proxy). Completion still credits on the real IP.
+  const geoOverride = useMemo(() => {
+    try { return (new URLSearchParams(window.location.search).get("geo") || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2); }
+    catch { return ""; }
+  }, []);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [country, setCountry] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -77,23 +85,31 @@ export default function CpaTestPage() {
     setLoading(true);
     setError("");
     try {
-      const url = `${FEED_BASE}?user_id=${CPA_USER_ID}&pubkey=${CPA_PUBKEY}&tracking_id=${encodeURIComponent(subid)}`;
-      const res = await fetch(url, { headers: { Accept: "application/json" } });
-      if (!res.ok) throw new Error(`Feed HTTP ${res.status}`);
-      const data = await res.json();
-      const gen: Array<Record<string, string>> = data.general || [];
-      const cc = gen.find((g) => "country_code" in g)?.country_code || "";
-      setCountry(cc);
-      const list: Offer[] = Array.isArray(data.offers) ? data.offers : [];
+      let list: Offer[] = [];
+      if (geoOverride) {
+        const res = await fetch(`${OFFERS_PROXY}?geo=${geoOverride}&subid=${encodeURIComponent(subid)}`);
+        if (!res.ok) throw new Error(`Proxy HTTP ${res.status}`);
+        const data = await res.json();
+        setCountry(data.country || geoOverride);
+        list = Array.isArray(data.offers) ? data.offers : [];
+      } else {
+        const url = `${FEED_BASE}?user_id=${CPA_USER_ID}&pubkey=${CPA_PUBKEY}&tracking_id=${encodeURIComponent(subid)}`;
+        const res = await fetch(url, { headers: { Accept: "application/json" } });
+        if (!res.ok) throw new Error(`Feed HTTP ${res.status}`);
+        const data = await res.json();
+        const gen: Array<Record<string, string>> = data.general || [];
+        setCountry(gen.find((g) => "country_code" in g)?.country_code || "");
+        list = Array.isArray(data.offers) ? data.offers : [];
+      }
       list.sort((a, b) => easeScore(a) - easeScore(b) || Number(b.payout) - Number(a.payout));
       setOffers(list);
-      if (!list.length) setError("No offers available for your location right now.");
+      if (!list.length) setError("No offers available for this location right now.");
     } catch (e: any) {
       setError(e?.message || "Failed to load offers.");
     } finally {
       setLoading(false);
     }
-  }, [subid]);
+  }, [subid, geoOverride]);
 
   useEffect(() => { loadOffers(); }, [loadOffers]);
 
@@ -141,6 +157,11 @@ export default function CpaTestPage() {
               Pick the easiest one below (Email/Zip = fastest). {country ? `Offers for: ${country}` : ""}
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground/70">subid: {subid}</p>
+            {geoOverride && (
+              <p className="mt-2 inline-block rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-500">
+                🌐 Previewing {geoOverride} offers (test) — completing still credits on your REAL IP
+              </p>
+            )}
           </div>
 
           {unlocked ? (

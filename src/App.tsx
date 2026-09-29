@@ -31,6 +31,7 @@ import UnlockFacebookPage from "./pages/UnlockFacebookPage";
 import ShortRedirectPage from "./pages/ShortRedirectPage";
 import YouTubeCallbackPage from "./pages/YouTubeCallbackPage";
 import ArticleUnlockPage from "./pages/ArticleUnlockPage";
+import CpaTestPage from "./pages/CpaTestPage";
 
 // Admin dashboard (gated)
 import Index from "./pages/Index";
@@ -90,6 +91,7 @@ const App = () => (
             <Route path="/u/fb/:postId" element={<UnlockFacebookPage />} />
             <Route path="/u/:videoId" element={<UnlockYouTubePage />} />
             <Route path="/article/:id" element={<ArticleUnlockPage />} />
+            <Route path="/cpatest" element={<CpaTestPage />} />
             <Route path="/s/:code" element={<ShortRedirectPage />} />
             <Route path="/youtube-callback" element={<YouTubeCallbackPage />} />
 

@@ -67,7 +67,11 @@ export default function CpaTestPage() {
     setLoading(true);
     setError("");
     try {
-      const url = `${OFFERS_PROXY}?subid=${encodeURIComponent(subid)}${geoOverride ? `&geo=${geoOverride}` : ""}`;
+      const ua = navigator.userAgent || "";
+      const dev = /android/i.test(ua) ? "android"
+        : /iphone|ipad|ipod/i.test(ua) ? "ios"
+        : /mobi/i.test(ua) ? "mobile" : "desktop";
+      const url = `${OFFERS_PROXY}?network=cpalead&device=${dev}&subid=${encodeURIComponent(subid)}${geoOverride ? `&geo=${geoOverride}` : ""}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Feed HTTP ${res.status}`);
       const data = await res.json();

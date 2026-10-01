@@ -229,7 +229,6 @@ export default function CpaTestPage() {
     window.open(o.offerlink, "_blank", "noopener,noreferrer");
   };
 
-  const secsLeft = Math.max(0, Math.ceil(AWAY_SECONDS - awayMs / 1000));
   const pct = Math.min(100, (awayMs / (AWAY_SECONDS * 1000)) * 100);
   const sec = tab ? SECTIONS[tab] : null;
 
@@ -262,11 +261,8 @@ export default function CpaTestPage() {
           {unlocked ? (
             <div className="rounded-2xl border border-primary/40 bg-primary/10 p-6 text-center">
               <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-primary" />
-              <h2 className="text-lg font-bold">Unlocked! 🎉</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {unlocked === "verified" ? "Offer completion confirmed." : "Thanks for trying an offer."}
-              </p>
-              <p className="mt-1 text-[11px] text-muted-foreground/70">test: unlocked by {unlocked === "verified" ? "postback" : `${AWAY_SECONDS}s timer`}</p>
+              <h2 className="text-lg font-bold">Completed ✅</h2>
+              <p className="mt-1 text-sm text-muted-foreground">You're all set — continue below.</p>
               <a href={UNLOCK_DEST} className="mt-4 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:opacity-90">
                 <ExternalLink className="h-4 w-4" /> Continue
               </a>
@@ -289,12 +285,12 @@ export default function CpaTestPage() {
                     {isAway ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" /> : <Timer className="h-4 w-4 shrink-0 text-primary" />}
                     <span className="min-w-0 flex-1">
                       {isAway
-                        ? <>Doing <b>{current.title}</b>… {secsLeft}s left</>
-                        : <>Back too soon — finish the offer in the other tab. <b>{secsLeft}s</b> left (the timer only runs while you're on the offer).</>}
+                        ? <>Checking <b>{current.title}</b>… finish it in the other tab.</>
+                        : <><b>Paused</b> — you haven't finished the offer yet. Go back and finish it to unlock.</>}
                     </span>
                     {!isAway && (
                       <button onClick={() => openOffer(current)} className="shrink-0 rounded-lg bg-primary px-2.5 py-1 text-[11px] font-semibold text-primary-foreground">
-                        Reopen
+                        Finish offer
                       </button>
                     )}
                   </div>

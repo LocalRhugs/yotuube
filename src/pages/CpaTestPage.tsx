@@ -250,7 +250,6 @@ export default function CpaTestPage() {
             <p className="mt-2 text-sm text-muted-foreground">
               Pick the kind of step you like best, then do one.{country ? ` (${country})` : ""}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground/70">subid: {subid}</p>
             {geoOverride && (
               <p className="mt-2 inline-block rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[11px] font-semibold text-amber-500">
                 🌐 Previewing {geoOverride} offers (test) — completing still credits on your REAL IP

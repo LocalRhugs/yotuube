@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2, Lock, ThumbsUp, MessageSquare, Youtube, ArrowRight, Loader2, Download, Play } from "lucide-react";
 import ComplianceFooter from "@/components/ComplianceFooter";
+import { detectGateLang, gateStrings, fmt } from "@/lib/gate-i18n";
 
 declare global { interface Window { YT?: any; onYouTubeIframeAPIReady?: () => void; } }
 
@@ -11,6 +12,8 @@ declare global { interface Window { YT?: any; onYouTubeIframeAPIReady?: () => vo
 export default function UnlockYouTubePage() {
   const { videoId = "" } = useParams();
   const [searchParams] = useSearchParams();
+  const [lang] = useState(detectGateLang);
+  const T = gateStrings(lang);
 
   const [targetUrl, setTargetUrl] = useState("");
   const [channelId, setChannelId] = useState("");
@@ -146,15 +149,15 @@ export default function UnlockYouTubePage() {
 
   // Watch-step subtitle (mirrors the clean "Press play to continue" style).
   const watchSubtitle = watchSatisfied
-    ? "Watched — thanks!"
+    ? T.watched
     : isPlaying
-      ? `Keep watching · ${watchTarget - watchedSeconds}s left`
+      ? fmt(T.keep, watchTarget - watchedSeconds)
       : watchedSeconds > 0
-        ? `Paused — press play to continue · ${watchTarget - watchedSeconds}s left`
-        : `Press play to start · ${watchTarget}s`;
+        ? fmt(T.paused, watchTarget - watchedSeconds)
+        : fmt(T.start, watchTarget);
 
   return (
-    <div className="min-h-screen bg-[#0f0f0f] text-white flex flex-col items-center justify-center p-4">
+    <div dir={lang === "ar" ? "rtl" : "ltr"} lang={lang} className="min-h-screen bg-[#0f0f0f] text-white flex flex-col items-center justify-center p-4">
       {/* Bridge page — excluded from AdSense crawl per Google policy */}
       {typeof document !== "undefined" && (() => {
         const id = "robots-noindex";
@@ -172,18 +175,18 @@ export default function UnlockYouTubePage() {
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 backdrop-blur-sm mb-4">
             <Lock className="w-3 h-3 text-purple-400" />
-            <span className="text-xs font-medium text-gray-300">Content Locked</span>
+            <span className="text-xs font-medium text-gray-300">{T.locked}</span>
           </div>
           <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-            Content Locked
+            {T.locked}
           </h1>
-          <p className="text-gray-400 text-sm">Complete the steps below to unlock.</p>
+          <p className="text-gray-400 text-sm">{T.intro}</p>
         </div>
 
         {totalSteps > 0 && (
           <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-semibold tracking-[0.15em] text-gray-400 uppercase">Your Progress</span>
+              <span className="text-[11px] font-semibold tracking-[0.15em] text-gray-400 uppercase">{T.progress}</span>
               <span className="text-xs font-bold text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full">{doneSteps}/{totalSteps}</span>
             </div>
             <div className="h-2.5 rounded-full bg-white/10 overflow-hidden">
@@ -198,33 +201,33 @@ export default function UnlockYouTubePage() {
                 the Watch Video row below, so the video itself stays clean with native controls. */}
             {!strictWatch && !watchSatisfied && (
               <div className="absolute bottom-2 right-2 px-3 py-1 rounded-full bg-black/70 backdrop-blur-md border border-white/10 text-xs font-semibold text-white pointer-events-none">
-                Watching... {watchTarget - watchedSeconds}s
+                {fmt(T.watching, watchTarget - watchedSeconds)}
               </div>
             )}
             {watchSatisfied && (
               <div className="absolute bottom-2 right-2 px-3 py-1 rounded-full bg-green-600/90 backdrop-blur-md text-xs font-semibold text-white flex items-center gap-1 pointer-events-none">
-                <CheckCircle2 className="w-3 h-3" /> Watch verified
+                <CheckCircle2 className="w-3 h-3" /> {T.verified}
               </div>
             )}
           </div>
           <div className="p-6 space-y-4">
             {actions.subscribe && (
-              <ActionBtn label="Subscribe to Channel" icon={<Youtube className="w-5 h-5 text-white" />} colorBg="bg-red-600"
+              <ActionBtn label={T.subscribe} required={T.required} icon={<Youtube className="w-5 h-5 text-white" />} colorBg="bg-red-600"
                 done={completed.subscribe} loading={verifying.subscribe}
                 onClick={() => verify("subscribe", `https://www.youtube.com/channel/${channelId}?sub_confirmation=1`)} />
             )}
             {actions.like && (
-              <ActionBtn label="Like Video" icon={<ThumbsUp className="w-5 h-5 text-white" />} colorBg="bg-blue-600"
+              <ActionBtn label={T.like} required={T.required} icon={<ThumbsUp className="w-5 h-5 text-white" />} colorBg="bg-blue-600"
                 done={completed.like} loading={verifying.like}
                 onClick={() => verify("like", `https://www.youtube.com/watch?v=${videoId}`)} />
             )}
             {actions.comment && (
-              <ActionBtn label="Comment on Video" icon={<MessageSquare className="w-5 h-5 text-white" />} colorBg="bg-green-600"
+              <ActionBtn label={T.comment} required={T.required} icon={<MessageSquare className="w-5 h-5 text-white" />} colorBg="bg-green-600"
                 done={completed.comment} loading={verifying.comment}
                 onClick={() => verify("comment", `https://www.youtube.com/watch?v=${videoId}`)} />
             )}
             {actions.discord && (
-              <ActionBtn label="Join Discord Server" icon={<DiscordIcon />} colorBg="bg-indigo-600"
+              <ActionBtn label={T.discord} required={T.required} icon={<DiscordIcon />} colorBg="bg-indigo-600"
                 done={completed.discord} loading={verifying.discord}
                 onClick={() => verify("discord", discordUrl || "https://discord.com")} />
             )}
@@ -236,7 +239,7 @@ export default function UnlockYouTubePage() {
                   {watchSatisfied ? <CheckCircle2 className="w-5 h-5 text-white" /> : <Play className="w-5 h-5 text-white fill-white" />}
                 </div>
                 <div className="flex-1 text-center">
-                  <div className="font-semibold leading-tight">Watch Video</div>
+                  <div className="font-semibold leading-tight">{T.watch}</div>
                   <div className="text-xs text-gray-400 mt-0.5">{watchSubtitle}</div>
                 </div>
                 <div className="w-6 flex justify-center">
@@ -258,14 +261,14 @@ export default function UnlockYouTubePage() {
               disabled={!readyToUnlock}
             >
               {readyToUnlock ? (
-                <span className="flex items-center gap-2"><Download className="w-5 h-5" />Unlock Link</span>
+                <span className="flex items-center gap-2"><Download className="w-5 h-5" />{T.unlock}</span>
               ) : (
-                <span className="flex items-center gap-2"><Lock className="w-4 h-4" />Complete Steps to Unlock</span>
+                <span className="flex items-center gap-2"><Lock className="w-4 h-4" />{T.completeSteps}</span>
               )}
             </Button>
-            {!actionsDone && <p className="text-center text-xs text-gray-500">Checking for completion automatically...</p>}
+            {!actionsDone && <p className="text-center text-xs text-gray-500">{T.checking}</p>}
             {readyToUnlock && bonusClicks > 0 && bonusClicks < REQUIRED_AD_CLICKS && (
-              <p className="text-center text-xs text-gray-400">Almost there — tap Unlock once more.</p>
+              <p className="text-center text-xs text-gray-400">{T.almost}</p>
             )}
           </div>
         </Card>
@@ -284,8 +287,8 @@ function DiscordIcon() {
   );
 }
 
-function ActionBtn({ label, icon, colorBg, done, loading, onClick }: {
-  label: string; icon: React.ReactNode; colorBg: string;
+function ActionBtn({ label, required = "Required", icon, colorBg, done, loading, onClick }: {
+  label: string; required?: string; icon: React.ReactNode; colorBg: string;
   done?: boolean; loading?: boolean; onClick: () => void;
 }) {
   return (
@@ -299,9 +302,9 @@ function ActionBtn({ label, icon, colorBg, done, loading, onClick }: {
     >
       <div className="flex items-center gap-3">
         <div className={`p-2 rounded-lg ${done ? "bg-green-500" : colorBg}`}>{icon}</div>
-        <div className="text-left">
+        <div className="text-start">
           <div className="font-semibold">{label}</div>
-          <div className="text-xs text-muted-foreground">Required</div>
+          <div className="text-xs text-muted-foreground">{required}</div>
         </div>
       </div>
       {loading ? <Loader2 className="w-5 h-5 animate-spin text-gray-400" />

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { CheckCircle2, Lock, ThumbsUp, MessageSquare, Youtube, ArrowRight, Loader2, Download, Play } from "lucide-react";
 import ComplianceFooter from "@/components/ComplianceFooter";
-import { detectGateLang, gateStrings, fmt } from "@/lib/gate-i18n";
+import { detectGateLang, gateStrings, fmt, isRealChrome } from "@/lib/gate-i18n";
 
 declare global { interface Window { YT?: any; onYouTubeIframeAPIReady?: () => void; } }
 
@@ -14,6 +14,7 @@ export default function UnlockYouTubePage() {
   const [searchParams] = useSearchParams();
   const [lang] = useState(detectGateLang);
   const T = gateStrings(lang);
+  const [inChrome] = useState(isRealChrome);
 
   const [targetUrl, setTargetUrl] = useState("");
   const [channelId, setChannelId] = useState("");
@@ -181,6 +182,11 @@ export default function UnlockYouTubePage() {
             {T.locked}
           </h1>
           <p className="text-gray-400 text-sm">{T.intro}</p>
+        </div>
+
+        <div className={`rounded-2xl border px-4 py-3 text-center ${inChrome ? "border-white/10 bg-white/5" : "border-yellow-400/60 bg-yellow-400/10"}`}>
+          <div className={`text-sm font-semibold ${inChrome ? "text-gray-300" : "text-yellow-300"}`}>{T.chrome}</div>
+          {!inChrome && <div className="text-xs text-yellow-200/80 mt-1">{T.chromeTip}</div>}
         </div>
 
         {totalSteps > 0 && (

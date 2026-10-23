@@ -7,6 +7,7 @@ export type GateStrings = {
   watch: string; watched: string; keep: string; paused: string; start: string;
   watching: string; verified: string;
   unlock: string; completeSteps: string; checking: string; almost: string;
+  chrome: string; chromeTip: string;
 };
 
 const en: GateStrings = {
@@ -15,6 +16,7 @@ const en: GateStrings = {
   watch: "Watch Video", watched: "Watched — thanks!", keep: "Keep watching · {n}s left", paused: "Paused — press play to continue · {n}s left", start: "Press play to start · {n}s",
   watching: "Watching... {n}s", verified: "Watch verified",
   unlock: "Unlock Link", completeSteps: "Complete Steps to Unlock", checking: "Checking for completion automatically...", almost: "Almost there — tap Unlock once more.",
+    chrome: "Use Google Chrome — this page works best there.", chromeTip: "Not in Chrome? Tap ⋮ (top right) → Open in Chrome.",
 };
 
 const STRINGS: Record<string, GateStrings> = {
@@ -25,6 +27,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "Mira el Video", watched: "¡Visto, gracias!", keep: "Sigue viendo · faltan {n}s", paused: "En pausa: dale play para seguir · faltan {n}s", start: "Dale play para empezar · {n}s",
     watching: "Viendo... {n}s", verified: "Visualización verificada",
     unlock: "Desbloquear Link", completeSteps: "Completa los Pasos para Desbloquear", checking: "Comprobando automáticamente...", almost: "Casi listo: toca Desbloquear una vez más.",
+    chrome: "Usa Google Chrome: esta página funciona mejor ahí.", chromeTip: "¿No estás en Chrome? Toca ⋮ (arriba a la derecha) → Abrir en Chrome.",
   },
   pt: {
     locked: "Conteúdo Bloqueado", intro: "Complete os passos abaixo para desbloquear.", progress: "Seu Progresso",
@@ -32,6 +35,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "Assista ao Vídeo", watched: "Assistido, valeu!", keep: "Continue assistindo · faltam {n}s", paused: "Pausado: aperte play para continuar · faltam {n}s", start: "Aperte play para começar · {n}s",
     watching: "Assistindo... {n}s", verified: "Visualização confirmada",
     unlock: "Desbloquear Link", completeSteps: "Complete os Passos para Desbloquear", checking: "Verificando automaticamente...", almost: "Quase lá: toque em Desbloquear mais uma vez.",
+    chrome: "Use o Google Chrome: esta página funciona melhor nele.", chromeTip: "Não está no Chrome? Toque em ⋮ (canto superior direito) → Abrir no Chrome.",
   },
   fil: {
     locked: "Naka-lock ang Content", intro: "Tapusin ang mga hakbang sa ibaba para ma-unlock.", progress: "Iyong Progress",
@@ -39,6 +43,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "Panoorin ang Video", watched: "Napanood na, salamat!", keep: "Ituloy ang panonood · {n}s pa", paused: "Naka-pause: pindutin ang play para ituloy · {n}s pa", start: "Pindutin ang play para magsimula · {n}s",
     watching: "Nanonood... {n}s", verified: "Na-verify ang panonood",
     unlock: "I-unlock ang Link", completeSteps: "Tapusin ang mga Hakbang para Ma-unlock", checking: "Awtomatikong sinusuri...", almost: "Malapit na: pindutin ulit ang I-unlock.",
+    chrome: "Gamitin ang Google Chrome — mas gumagana ang page na ito doon.", chromeTip: "Wala sa Chrome? Pindutin ang ⋮ (taas kanan) → Buksan sa Chrome.",
   },
   id: {
     locked: "Konten Terkunci", intro: "Selesaikan langkah di bawah untuk membuka.", progress: "Progres Kamu",
@@ -46,6 +51,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "Tonton Video", watched: "Sudah ditonton, makasih!", keep: "Terus tonton · sisa {n} detik", paused: "Dijeda: tekan play untuk lanjut · sisa {n} detik", start: "Tekan play untuk mulai · {n} detik",
     watching: "Menonton... {n} detik", verified: "Tontonan terverifikasi",
     unlock: "Buka Link", completeSteps: "Selesaikan Langkah untuk Membuka", checking: "Memeriksa otomatis...", almost: "Sedikit lagi: tekan Buka sekali lagi.",
+    chrome: "Pakai Google Chrome, halaman ini paling lancar di sana.", chromeTip: "Belum di Chrome? Ketuk ⋮ (kanan atas) → Buka di Chrome.",
   },
   ms: {
     locked: "Kandungan Dikunci", intro: "Lengkapkan langkah di bawah untuk membuka.", progress: "Kemajuan Anda",
@@ -53,6 +59,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "Tonton Video", watched: "Sudah ditonton, terima kasih!", keep: "Teruskan menonton · baki {n} saat", paused: "Dijeda: tekan play untuk teruskan · baki {n} saat", start: "Tekan play untuk mula · {n} saat",
     watching: "Menonton... {n} saat", verified: "Tontonan disahkan",
     unlock: "Buka Pautan", completeSteps: "Lengkapkan Langkah untuk Membuka", checking: "Menyemak secara automatik...", almost: "Hampir siap: tekan Buka sekali lagi.",
+    chrome: "Guna Google Chrome, halaman ini paling lancar di sana.", chromeTip: "Bukan di Chrome? Tekan ⋮ (kanan atas) → Buka dalam Chrome.",
   },
   th: {
     locked: "เนื้อหาถูกล็อก", intro: "ทำตามขั้นตอนด้านล่างเพื่อปลดล็อก", progress: "ความคืบหน้าของคุณ",
@@ -60,6 +67,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "ดูวิดีโอ", watched: "ดูครบแล้ว ขอบคุณ!", keep: "ดูต่อไป · เหลืออีก {n} วินาที", paused: "หยุดชั่วคราว: กดเล่นเพื่อดูต่อ · เหลืออีก {n} วินาที", start: "กดเล่นเพื่อเริ่ม · {n} วินาที",
     watching: "กำลังดู... {n} วินาที", verified: "ยืนยันการดูแล้ว",
     unlock: "ปลดล็อกลิงก์", completeSteps: "ทำขั้นตอนให้ครบเพื่อปลดล็อก", checking: "กำลังตรวจสอบอัตโนมัติ...", almost: "ใกล้แล้ว: กดปลดล็อกอีกครั้ง",
+    chrome: "ใช้ Google Chrome หน้านี้ทำงานได้ดีที่สุดบน Chrome", chromeTip: "ยังไม่ได้อยู่ใน Chrome? แตะ ⋮ (มุมขวาบน) → เปิดใน Chrome",
   },
   vi: {
     locked: "Nội Dung Bị Khóa", intro: "Hoàn thành các bước bên dưới để mở khóa.", progress: "Tiến Độ Của Bạn",
@@ -67,6 +75,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "Xem Video", watched: "Đã xem, cảm ơn!", keep: "Tiếp tục xem · còn {n} giây", paused: "Đã tạm dừng: bấm phát để tiếp tục · còn {n} giây", start: "Bấm phát để bắt đầu · {n} giây",
     watching: "Đang xem... {n} giây", verified: "Đã xác nhận xem",
     unlock: "Mở Khóa Link", completeSteps: "Hoàn Thành Các Bước Để Mở Khóa", checking: "Đang tự động kiểm tra...", almost: "Sắp xong: bấm Mở Khóa thêm một lần.",
+    chrome: "Dùng Google Chrome, trang này chạy tốt nhất trên đó.", chromeTip: "Chưa dùng Chrome? Bấm ⋮ (góc trên bên phải) → Mở bằng Chrome.",
   },
   ko: {
     locked: "잠긴 콘텐츠", intro: "아래 단계를 완료하면 잠금이 해제됩니다.", progress: "진행 상황",
@@ -74,6 +83,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "영상 시청", watched: "시청 완료, 감사합니다!", keep: "계속 시청하세요 · {n}초 남음", paused: "일시정지됨: 재생을 눌러 계속 · {n}초 남음", start: "재생을 눌러 시작 · {n}초",
     watching: "시청 중... {n}초", verified: "시청 확인됨",
     unlock: "링크 잠금 해제", completeSteps: "단계를 완료하면 잠금 해제", checking: "자동으로 확인 중...", almost: "거의 다 됐어요: 잠금 해제를 한 번 더 누르세요.",
+    chrome: "Google Chrome을 사용하세요. 이 페이지는 Chrome에서 가장 잘 작동합니다.", chromeTip: "Chrome이 아닌가요? ⋮ (오른쪽 위) → Chrome에서 열기를 누르세요.",
   },
   ar: {
     locked: "المحتوى مقفل", intro: "أكمل الخطوات بالأسفل لفتح القفل.", progress: "تقدّمك",
@@ -81,6 +91,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "شاهد الفيديو", watched: "تمت المشاهدة، شكرًا!", keep: "كمّل المشاهدة · باقي {n} ثانية", paused: "متوقف: اضغط تشغيل للمتابعة · باقي {n} ثانية", start: "اضغط تشغيل للبدء · {n} ثانية",
     watching: "جاري المشاهدة... {n} ثانية", verified: "تم التحقق من المشاهدة",
     unlock: "افتح الرابط", completeSteps: "أكمل الخطوات لفتح القفل", checking: "جاري التحقق تلقائيًا...", almost: "قربت: اضغط فتح مرة ثانية.",
+    chrome: "استخدم Google Chrome، الصفحة تشتغل فيه أفضل شي.", chromeTip: "مو على Chrome؟ اضغط ⋮ (فوق يمين) ← افتح في Chrome.",
   },
   ru: {
     locked: "Контент Заблокирован", intro: "Выполни шаги ниже, чтобы разблокировать.", progress: "Твой Прогресс",
@@ -88,6 +99,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "Посмотри Видео", watched: "Просмотрено, спасибо!", keep: "Продолжай смотреть · осталось {n} с", paused: "Пауза: нажми play, чтобы продолжить · осталось {n} с", start: "Нажми play, чтобы начать · {n} с",
     watching: "Смотрим... {n} с", verified: "Просмотр подтверждён",
     unlock: "Открыть Ссылку", completeSteps: "Выполни Шаги для Разблокировки", checking: "Проверяем автоматически...", almost: "Почти готово: нажми Открыть ещё раз.",
+    chrome: "Используй Google Chrome — в нём эта страница работает лучше всего.", chromeTip: "Не в Chrome? Нажми ⋮ (справа вверху) → Открыть в Chrome.",
   },
   de: {
     locked: "Inhalt Gesperrt", intro: "Erledige die Schritte unten zum Freischalten.", progress: "Dein Fortschritt",
@@ -95,6 +107,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "Video Ansehen", watched: "Angesehen, danke!", keep: "Weiter ansehen · noch {n}s", paused: "Pausiert: drücke Play zum Fortfahren · noch {n}s", start: "Drücke Play zum Starten · {n}s",
     watching: "Läuft... {n}s", verified: "Ansehen bestätigt",
     unlock: "Link Freischalten", completeSteps: "Schritte Erledigen zum Freischalten", checking: "Wird automatisch geprüft...", almost: "Fast geschafft: tippe noch einmal auf Freischalten.",
+    chrome: "Nutze Google Chrome — dort funktioniert die Seite am besten.", chromeTip: "Nicht in Chrome? Tippe auf ⋮ (oben rechts) → In Chrome öffnen.",
   },
   fr: {
     locked: "Contenu Verrouillé", intro: "Termine les étapes ci-dessous pour débloquer.", progress: "Ta Progression",
@@ -102,6 +115,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "Regarder la Vidéo", watched: "Regardée, merci !", keep: "Continue à regarder · encore {n}s", paused: "En pause : appuie sur lecture pour continuer · encore {n}s", start: "Appuie sur lecture pour commencer · {n}s",
     watching: "Lecture... {n}s", verified: "Visionnage vérifié",
     unlock: "Débloquer le Lien", completeSteps: "Termine les Étapes pour Débloquer", checking: "Vérification automatique...", almost: "Presque fini : appuie encore une fois sur Débloquer.",
+    chrome: "Utilise Google Chrome : cette page marche mieux dessus.", chromeTip: "Pas dans Chrome ? Appuie sur ⋮ (en haut à droite) → Ouvrir dans Chrome.",
   },
   tr: {
     locked: "İçerik Kilitli", intro: "Kilidi açmak için aşağıdaki adımları tamamla.", progress: "İlerlemen",
@@ -109,6 +123,7 @@ const STRINGS: Record<string, GateStrings> = {
     watch: "Videoyu İzle", watched: "İzlendi, teşekkürler!", keep: "İzlemeye devam et · {n} sn kaldı", paused: "Duraklatıldı: devam için oynat'a bas · {n} sn kaldı", start: "Başlamak için oynat'a bas · {n} sn",
     watching: "İzleniyor... {n} sn", verified: "İzleme doğrulandı",
     unlock: "Linkin Kilidini Aç", completeSteps: "Kilidi Açmak için Adımları Tamamla", checking: "Otomatik kontrol ediliyor...", almost: "Az kaldı: Kilidi Aç'a bir kez daha bas.",
+    chrome: "Google Chrome kullan, bu sayfa en iyi orada çalışır.", chromeTip: "Chrome'da değil misin? ⋮ (sağ üst) → Chrome'da aç'a dokun.",
   },
 };
 
@@ -132,3 +147,12 @@ export function gateStrings(lang: string): GateStrings {
 }
 
 export const fmt = (s: string, n: number) => s.replace("{n}", String(n));
+
+// True when this is real Chrome (not an in-app browser like YouTube/Instagram/TikTok, Edge, Opera, Samsung).
+export function isRealChrome(): boolean {
+  try {
+    const ua = navigator.userAgent;
+    if (!/Chrome\/|CriOS\//.test(ua)) return false;
+    return !/Edg|OPR|SamsungBrowser|; wv\)|FBAN|FBAV|Instagram|TikTok|musical_ly|Line\/|YaBrowser|UCBrowser|MiuiBrowser|HeyTap/.test(ua);
+  } catch { return true; }
+}

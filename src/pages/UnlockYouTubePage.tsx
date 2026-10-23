@@ -258,7 +258,7 @@ export default function UnlockYouTubePage() {
           </div>
           <div className="p-6 bg-white/5 border-t border-white/5 space-y-3">
             <Button
-              className={`w-full h-12 text-lg font-bold transition-all duration-300 ${
+              className={`w-full min-h-12 h-auto py-2 text-base sm:text-lg leading-tight whitespace-normal font-bold transition-all duration-300 ${
                 readyToUnlock
                   ? "bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 shadow-lg shadow-purple-500/25"
                   : "bg-gray-700 text-gray-400 cursor-not-allowed"
@@ -269,7 +269,7 @@ export default function UnlockYouTubePage() {
               {readyToUnlock ? (
                 <span className="flex items-center gap-2"><Download className="w-5 h-5" />{T.unlock}</span>
               ) : (
-                <span className="flex items-center gap-2"><Lock className="w-4 h-4" />{T.completeSteps}</span>
+                <span className="flex items-center justify-center gap-2 text-center"><Lock className="w-4 h-4 shrink-0" />{T.completeSteps}</span>
               )}
             </Button>
             {!actionsDone && <p className="text-center text-xs text-gray-500">{T.checking}</p>}

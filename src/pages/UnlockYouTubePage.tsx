@@ -101,7 +101,7 @@ export default function UnlockYouTubePage() {
           const wId = decoded[idx++];
           const wSec = decoded[idx++];
           if (typeof wId === "string") setWatchVideoId(wId);
-          setWatchTarget(Math.max(1, Number(wSec) || 30));
+          // Old links carry a watch time — ignored now (no forced views); everyone waits the short default.
         }
       }
     } catch (e) {
@@ -205,7 +205,7 @@ export default function UnlockYouTubePage() {
         )}
         <Card className="bg-[#1a1a1a] border-white/5 shadow-2xl overflow-hidden">
           <div className="aspect-video w-full bg-black relative group">
-            <YouTubeGatePlayer videoId={heroVideoId} strict={strictWatch} onPlayingChange={setIsPlaying} />
+            <YouTubeGatePlayer videoId={heroVideoId} strict={true} onPlayingChange={setIsPlaying} />
             {/* Legacy hero shows a small progress pill; strict "watch" mode surfaces status in
                 the Watch Video row below, so the video itself stays clean with native controls. */}
             {!strictWatch && !watchSatisfied && (

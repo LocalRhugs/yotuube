@@ -130,6 +130,52 @@ const UploadPage = () => {
   const [uniqueVariant, setUniqueVariant] = useState(false);
   // Shorts per channel: post N DISTINCT shorts (different windows of the footage) per channel.
   const [shortsCopies, setShortsCopies] = useState(1);
+  // Per-channel publish time (datetime-local, viewer's timezone). Empty = publish right away.
+  // Scheduled uploads go up private with publishAt; YouTube makes them public on time.
+  const [channelSchedule, setChannelSchedule] = useState<Record<string, string>>({});
+  const scheduledIso = (destId: string, extraHours = 0): string | undefined => {
+    const v = channelSchedule[destId];
+    if (!v) return undefined;
+    const t = new Date(v).getTime() + extraHours * 3600_000;
+    return Number.isFinite(t) && t > Date.now() + 10 * 60_000 ? new Date(t).toISOString() : undefined;
+  };
+  const toLocalInput = (t: number) => {
+    const d = new Date(t), p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  };
+  // Biggest key markets first, the rest spread over ~24h (spam policy: no coordinated same-minute uploads).
+  const applyFastRollout = () => {
+    const TIER: Record<string, number> = { tl: 0, id: 0, pt: 0, es: 8, th: 8, vi: 8, ko: 24, ru: 24 };
+    const start = Date.now() + 15 * 60_000;
+    const next: Record<string, string> = {};
+    let koSeen = 0;
+    for (const d of destinations) {
+      if (d.platform !== "youtube" || !selectedAccounts.includes(d.id)) continue;
+      const lang = (channelLangs[d.id] || "").toLowerCase();
+      let h = TIER[lang] ?? 12;
+      if (lang === "ko") h += 6 * koSeen++; // the two Korean channels don't go out together
+      next[d.id] = toLocalInput(start + h * 3600_000);
+    }
+    setChannelSchedule(next);
+    toast.success(`Scheduled ${Object.keys(next).length} channels: biggest markets in 15 min, the rest over ~24h`);
+  };
+  // Post the script comment now — or, for a scheduled (still private) video, queue it: the scheduled-comments
+  // cron posts it once YouTube makes the video public (you can't comment on a private video).
+  const postOrQueueComment = async (dest: UploadDestination, videoId: string, text: string, schedIso?: string): Promise<{ ok: boolean; queued?: boolean; error?: string }> => {
+    if (schedIso) {
+      if (!dest.channelTokenId) return { ok: false, error: "channel has no token id" };
+      const { error } = await supabase.from("scheduled_comments" as any).insert({ channel_token_id: dest.channelTokenId, video_id: videoId, comment_text: text, publish_at: schedIso } as any);
+      return error ? { ok: false, error: error.message } : { ok: true, queued: true };
+    }
+    const r = await fetch("https://www.googleapis.com/youtube/v3/commentThreads?part=snippet", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${dest.accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ snippet: { videoId, topLevelComment: { snippet: { textOriginal: text } } } }),
+    });
+    if (r.ok) return { ok: true };
+    const e = await r.json().catch(() => ({} as any));
+    return { ok: false, error: e.error?.message || "Unknown error" };
+  };
 
   // Per-video script unlock: pick the game (from the key system) → smart-link points at the
   // store's /unlock?u=<universe>, so the gate leads into Linkvertise → reveals THAT game's script.
@@ -624,9 +670,11 @@ const UploadPage = () => {
             const asShort = (isShort && videoDuration && videoDuration <= 60) || uploadMode === 'short';
             const finalTitle = asShort ? `${title} #Shorts` : title;
             const finalDesc = asShort ? `${description}\n\n#Shorts` : description;
+            const mainSched = scheduledIso(dest.id);
             const ytUploadOnce = () => uploadVideoToYouTube(dest.accessToken!, mainSource, {
               title: finalTitle, description: finalDesc,
-              tags: selectedTags, categoryId: category, privacyStatus: privacy,
+              tags: selectedTags, categoryId: category, privacyStatus: mainSched ? "private" : privacy,
+              scheduled: mainSched,
               allowComments, allowRatings,
               defaultLanguage: defaultLanguage || undefined,
               license, publicStatsViewable: publicStats,
@@ -707,35 +755,13 @@ const UploadPage = () => {
                       console.warn("Description update error:", descErr);
                     }
 
-                    // 2. Auto-post smart link as a comment
+                    // 2. Auto-post smart link as a comment (queued until publish if the video is scheduled)
                     try {
                       setUploadProgress(`Posting smart link comment on ${dest.name}...`);
                       const commentText = `${bodyText}\n${slRes.smartLink}`;
-                      const commentRes = await fetch(
-                        "https://www.googleapis.com/youtube/v3/commentThreads?part=snippet",
-                        {
-                          method: "POST",
-                          headers: {
-                            Authorization: `Bearer ${dest.accessToken}`,
-                            "Content-Type": "application/json",
-                          },
-                          body: JSON.stringify({
-                            snippet: {
-                              videoId: res.videoId,
-                              topLevelComment: {
-                                snippet: { textOriginal: commentText },
-                              },
-                            },
-                          }),
-                        }
-                      );
-                      if (commentRes.ok) {
-                        toast.success(`Smart link comment posted on ${dest.name}!`);
-                      } else {
-                        const errData = await commentRes.json().catch(() => ({}));
-                        console.warn("Smart link comment failed:", errData);
-                        toast.warning(`Smart link in description but comment failed: ${errData.error?.message || 'Unknown error'}`);
-                      }
+                      const c = await postOrQueueComment(dest, res.videoId!, commentText, mainSched);
+                      if (c.ok) toast.success(c.queued ? `Comment queued — it posts when ${dest.name}'s video goes live` : `Smart link comment posted on ${dest.name}!`);
+                      else toast.warning(`Smart link in description but comment failed: ${c.error}`);
                     } catch (commentErr: any) {
                       console.warn("Smart link comment error:", commentErr);
                     }
@@ -768,7 +794,7 @@ const UploadPage = () => {
 
             // Shorts upload — for 'both' (needs the long upload to have succeeded) or 'short' (always).
             if (doShort && (uploadMode === 'short' || res.success)) {
-              const shortWins = shortWindows(sliceIndexById[dest.id] ?? 0, totalSlices, Math.max(1, Math.min(3, shortsCopies)));
+              const shortWins = shortWindows(sliceIndexById[dest.id] ?? 0, totalSlices, Math.max(1, Math.min(2, shortsCopies)));
               for (let scIdx = 0; scIdx < shortWins.length; scIdx++) {
               try {
                 // Each copy = a DIFFERENT window of the footage (not a same-video dupe) → more shots.
@@ -777,10 +803,12 @@ const UploadPage = () => {
                 setUploadProgress(`Uploading Short ${scIdx + 1}/${shortWins.length} to ${dest.name}...`);
                 const shortsTitle = `${title} #Shorts`;
                 const shortsDesc = `${description}\n\n#Shorts`;
+                const shortSched = scheduledIso(dest.id, scIdx * 24);
                 const shortsRes = await uploadVideoToYouTube(dest.accessToken, shortsFile, {
                   title: shortsTitle, description: shortsDesc,
                   tags: [...selectedTags, "Shorts", "Short"],
-                  categoryId: category, privacyStatus: privacy,
+                  categoryId: category, privacyStatus: shortSched ? "private" : privacy,
+                  scheduled: shortSched,
                   allowComments, allowRatings,
                   defaultLanguage: defaultLanguage || undefined,
                   license, publicStatsViewable: publicStats,
@@ -829,14 +857,10 @@ const UploadPage = () => {
                           });
                         } catch (e) { console.warn("Shorts desc update error:", e); }
 
-                        // Post smart link comment on Shorts
+                        // Post smart link comment on Shorts (queued until publish if this Short is scheduled)
                         try {
                           const commentText = `${bodyText}\n${slRes.smartLink}`;
-                          await fetch("https://www.googleapis.com/youtube/v3/commentThreads?part=snippet", {
-                            method: "POST",
-                            headers: { Authorization: `Bearer ${dest.accessToken}`, "Content-Type": "application/json" },
-                            body: JSON.stringify({ snippet: { videoId: shortsRes.videoId, topLevelComment: { snippet: { textOriginal: commentText } } } }),
-                          });
+                          await postOrQueueComment(dest, shortsRes.videoId!, commentText, shortSched);
                         } catch (e) { console.warn("Shorts comment error:", e); }
                       }
                     } catch (e) { console.warn("Shorts smart link error:", e); }
@@ -1385,6 +1409,21 @@ const UploadPage = () => {
           </div>
         </label>
 
+        {/* Staggered rollout: per-channel publish times (YouTube publishAt) */}
+        <div className="flex items-center justify-between gap-3 mb-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
+          <div className="flex items-start gap-3">
+            <Clock className="w-4 h-4 text-primary mt-0.5" />
+            <div>
+              <div className="text-sm font-medium text-foreground">Scheduled rollout</div>
+              <div className="text-xs text-muted-foreground">Set a publish time per channel below, or press Fast rollout: Filipino / Indonesian / Portuguese in 15 min, Spanish / Thai / Vietnamese +8h, Korean / Russian +24h. Each channel's 2nd Short goes out 24h after its first. Comments post automatically when each video goes live.</div>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button type="button" size="sm" variant="outline" onClick={applyFastRollout} disabled={uploading}>Fast rollout</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setChannelSchedule({})} disabled={uploading}>Clear</Button>
+          </div>
+        </div>
+
         {/* Shorts per channel: N distinct shorts (different footage windows) per channel */}
         <div className="flex items-center justify-between mb-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
           <div className="flex items-start gap-3">
@@ -1394,8 +1433,8 @@ const UploadPage = () => {
               <div className="text-xs text-muted-foreground">Post multiple Shorts to each channel — each one a DIFFERENT slice of the footage (not the same clip twice), for extra shots at the Shorts algorithm. The long-form still posts once.</div>
             </div>
           </div>
-          <input type="number" min={1} max={3} value={shortsCopies}
-            onChange={e => setShortsCopies(Math.max(1, Math.min(3, parseInt(e.target.value) || 1)))}
+          <input type="number" min={1} max={2} value={shortsCopies}
+            onChange={e => setShortsCopies(Math.max(1, Math.min(2, parseInt(e.target.value) || 1)))}
             disabled={uploading}
             className="w-16 h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground text-center" />
         </div>
@@ -1446,6 +1485,13 @@ const UploadPage = () => {
                     )}
                   </span>
                 </div>
+                {dest.platform === 'youtube' && selectedAccounts.includes(dest.id) && (
+                  <input type="datetime-local" value={channelSchedule[dest.id] || ''}
+                    onChange={e => setChannelSchedule(prev => ({ ...prev, [dest.id]: e.target.value }))}
+                    disabled={uploading}
+                    title="Publish time for this channel (empty = right away). Its 2nd Short goes out 24h later."
+                    className="text-xs border border-border rounded px-1 py-1 bg-background text-foreground w-[148px]" />
+                )}
                 {dest.platform === 'youtube' && selectedAccounts.includes(dest.id) && (
                   <select
                     value={channelModes[dest.id] || 'both'}

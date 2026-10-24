@@ -35,7 +35,8 @@ export default function UnlockYouTubePage() {
   // Ready once the social + watch steps are done. The direct-link ad clicks are now folded
   // INTO the unlock button (see handleUnlock) instead of a visible "click 2x" button.
   const readyToUnlock = actionsDone && watchSatisfied;
-  const REQUIRED_AD_CLICKS = 2;
+  // No hidden ad tabs on Unlock any more (YouTube deceptive-practices policy, 2026-10-24) — it goes straight to the target.
+  const REQUIRED_AD_CLICKS = 0;
   const DIRECT_LINK = "https://omg10.com/4/11035810";
 
   // If no social action (subscribe/like/comment/discord) is required, there's nothing to

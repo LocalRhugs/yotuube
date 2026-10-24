@@ -90,7 +90,9 @@ export default function UnlockYouTubePage() {
           discord: (mask & 8) === 8,
           watch: (mask & 16) === 16,
         };
-        setActions(act);
+        // No engagement requirements any more (YouTube fake-engagement policy, 2026-10-24): links still carry the
+        // old mask, but nobody has to like/subscribe/comment/join/watch to unlock.
+        setActions({ subscribe: false, like: false, comment: false, discord: false, watch: false });
         // Optional fields were appended sequentially (discord, then watch) — walk a cursor.
         let idx = 3;
         if (act.discord) { const dUrl = decoded[idx++]; if (typeof dUrl === "string") setDiscordUrl(dUrl); }

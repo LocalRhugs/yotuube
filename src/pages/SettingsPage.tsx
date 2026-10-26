@@ -956,8 +956,7 @@ function SmartLinkStyleSelect() {
   ];
   const fmtOpts: { v: SmartLinkFormat; label: string; hint: string }[] = [
     { v: "full", label: "Full link", hint: "post the page URL as-is" },
-    { v: "external", label: "Short — spoo.me", hint: "hides your domain; tracked in your spoo.me dashboard" },
-    { v: "self", label: "Short — your /s/", hint: "self-hosted short link with click analytics" },
+    { v: "external", label: "Short — go.combowick.com", hint: "our own short link (go.combowick.com/abc12) with click stats" },
   ];
   const curPage = pageOpts.find((o) => o.v === page)!;
   const curFmt = fmtOpts.find((o) => o.v === format)!;

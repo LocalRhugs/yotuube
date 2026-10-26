@@ -1,7 +1,7 @@
 /**
  * /article/:id?d=<base64url>
  *
- * Dynamic host page for self-hosted smart links (shortened via spoo.me etc.).
+ * Dynamic host page for self-hosted smart links (shortened via go.combowick.com).
  * Picks an existing blog post deterministically from `:id`, renders the full
  * article (so it looks like a normal editorial page to AdSense / users), then
  * embeds the YouTube unlock gate at the bottom which routes to the target URL.

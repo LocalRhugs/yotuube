@@ -35,13 +35,14 @@ export function setSmartLinkPage(p: SmartLinkPage) { try { localStorage.setItem(
 
 // How the link is FORMATTED when posted:
 //   "full"     = the full unlock-page URL as-is
-//   "external" = shortened via spoo.me / da.gd (hides your domain; tracked in your spoo.me dashboard)
-//   "self"     = shortened on your own domain  (yourdomain/s/…, self-hosted analytics)
+//   "external" = our own short link, go.combowick.com/<code> (Cloudflare worker + short_urls, click stats)
+//   "self"     = old name for the same thing (kept so saved settings still work)
+// spoo.me / da.gd are never used: spoo.me blocked all our links on 2026-10-26.
 export type SmartLinkFormat = "full" | "external" | "self";
 const FORMAT_KEY = "smart_link_format";
 export function getSmartLinkFormat(): SmartLinkFormat {
-  try { const v = localStorage.getItem(FORMAT_KEY); if (v === "full" || v === "external" || v === "self") return v; } catch {}
-  return "full";
+  try { const v = localStorage.getItem(FORMAT_KEY); if (v === "full") return v; } catch {}
+  return "external"; // short go.combowick.com links by default ("self" maps here too)
 }
 export function setSmartLinkFormat(f: SmartLinkFormat) { try { localStorage.setItem(FORMAT_KEY, f); } catch {} }
 
@@ -119,11 +120,9 @@ function base64url(payload: unknown[]): string {
  */
 async function shortenUrl(longUrl: string, selfHost = false): Promise<string> {
   try {
-    // selfHost -> our DB-backed /s/:code shortener (gives analytics); else external (spoo.me/da.gd).
-    const origin = selfHost && typeof window !== "undefined" ? window.location.origin : undefined;
-    const { data, error } = await supabase.functions.invoke('url-shortener', {
-      body: origin ? { url: longUrl, origin, mode: 'self' } : { url: longUrl },
-    });
+    // Always our own go.combowick.com/<code> link (the edge function never uses spoo.me / da.gd).
+    void selfHost;
+    const { data, error } = await supabase.functions.invoke('url-shortener', { body: { url: longUrl } });
     if (!error && data?.success && data?.shortUrl) {
       return data.shortUrl;
     }

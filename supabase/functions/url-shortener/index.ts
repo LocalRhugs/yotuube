@@ -127,28 +127,15 @@ serve(async (req) => {
     const longUrl = body.url;
     if (!longUrl) return err('url is required');
 
-    // mode: 'self' (default if origin provided), 'external' (force spoo.me/da.gd), 'auto'
-    const mode = body.mode || (body.origin ? 'self' : 'external');
-    const origin = (body.origin || '').replace(/\/$/, '');
-
+    // Every link is made on OUR domain now (go.combowick.com, Cloudflare worker "golinks" reading short_urls).
+    // spoo.me blocked all our links on 2026-10-26, so external shorteners are never used again, whatever the mode.
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
-
-    if (mode === 'self' && origin) {
-      const self = await createSelfHostedShort(supabase, origin, longUrl);
-      if (self) return ok({ success: true, shortUrl: self, originalUrl: longUrl, provider: 'self' });
-      // fall through to external if DB fails
+    const { data: code, error: rpcErr } = await supabase.rpc('make_short_url', { p_url: longUrl });
+    if (rpcErr || !code) {
+      console.error('make_short_url failed:', rpcErr?.message, longUrl);
+      return err('Could not create the short link', 502);
     }
-
-    let shortUrl = await trySpooMe(longUrl);
-    let provider = 'spoo.me';
-    if (!shortUrl) { shortUrl = await tryDaGd(longUrl); provider = 'da.gd'; }
-
-    if (!shortUrl) {
-      console.error('All shorteners failed for url:', longUrl);
-      return err('URL shortener service unavailable', 502);
-    }
-
-    return ok({ success: true, shortUrl, originalUrl: longUrl, provider });
+    return ok({ success: true, shortUrl: `https://go.combowick.com/${code}`, originalUrl: longUrl, provider: 'go.combowick.com' });
   } catch (error: unknown) {
     console.error('URL Shortener Error:', error);
     return err(error instanceof Error ? error.message : 'Unknown error', 500);

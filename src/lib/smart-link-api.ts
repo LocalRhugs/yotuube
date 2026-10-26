@@ -137,6 +137,26 @@ async function shortenUrl(longUrl: string, selfHost = false): Promise<string> {
  * Encodes [mask, compactChannelId, targetUrl] and constructs the URL locally.
  * Optionally shortens via the url-shortener edge function.
  */
+/**
+ * Store script page (or /unlock?u=) → the store's direct Linkvertise entry for that script.
+ * &v=<videoId> keeps every video's link unique (one shared URL across channels would tie them together).
+ */
+function directScriptUrl(targetUrl: string, videoId: string): string | null {
+  try {
+    const t = new URL(targetUrl);
+    if (!/(^|\.)keys\.combowick\.com$|^combowick-keys\.vercel\.app$/.test(t.hostname)) return null;
+    const m = t.pathname.match(/^\/scripts\/([a-z0-9-]+)\/?$/);
+    if (m) return `https://keys.combowick.com/unlock?slug=${m[1]}&lv=1&v=${encodeURIComponent(videoId)}`;
+    if (t.pathname === "/unlock" && t.searchParams.get("u")) {
+      t.hostname = "keys.combowick.com";
+      t.searchParams.set("lv", "1");
+      t.searchParams.set("v", videoId);
+      return t.toString();
+    }
+  } catch { /* not a URL */ }
+  return null;
+}
+
 export async function generateYouTubeSmartLink(
   req: YouTubeSmartLinkRequest,
   shorten = false
@@ -169,7 +189,9 @@ export async function generateYouTubeSmartLink(
     // PAGE decides the path: "u" = bare direct-steps gate, "article" = AdSense editorial.
     const siteBase = typeof window !== "undefined" ? window.location.origin : API_BASE;
     const path = getSmartLinkPage() === "gate" ? "u" : "article";
-    const longUrl = `${siteBase}/${path}/${req.videoId}?d=${encoded}`;
+    // Script videos skip the gate page entirely and go straight into that script's Linkvertise steps
+    // (YouTube removed a video over the "Content Locked" gate, 2026-10-26). Other targets keep the gate.
+    const longUrl = directScriptUrl(req.targetUrl, req.videoId) || `${siteBase}/${path}/${req.videoId}?d=${encoded}`;
 
     // The chosen FORMAT decides what actually gets posted.
     const fmt = getSmartLinkFormat();

@@ -143,21 +143,23 @@ const UploadPage = () => {
     const d = new Date(t), p = (n: number) => String(n).padStart(2, "0");
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
   };
-  // Biggest key markets first, the rest spread over ~24h (spam policy: no coordinated same-minute uploads).
+  // Biggest key markets first, the rest spread over ~3h (spam policy: no coordinated same-minute uploads).
   const applyFastRollout = () => {
-    const TIER: Record<string, number> = { tl: 0, id: 0, pt: 0, es: 8, th: 8, vi: 8, ko: 24, ru: 24 };
+    const TIER: Record<string, number> = { en: 0, tl: 0, id: 0, pt: 0, es: 1, th: 1, vi: 1, ko: 2, ru: 2 };
     const start = Date.now() + 15 * 60_000;
     const next: Record<string, string> = {};
+    const seen: Record<number, number> = {};
     let koSeen = 0;
     for (const d of destinations) {
       if (d.platform !== "youtube" || !selectedAccounts.includes(d.id)) continue;
       const lang = (channelLangs[d.id] || "").toLowerCase();
-      let h = TIER[lang] ?? 12;
-      if (lang === "ko") h += 6 * koSeen++; // the two Korean channels don't go out together
-      next[d.id] = toLocalInput(start + h * 3600_000);
+      let h = TIER[lang] ?? 1.5;
+      if (lang === "ko") h += koSeen++; // the two Korean channels go out an hour apart
+      const gap = (seen[h] = (seen[h] ?? -1) + 1) * 10 * 60_000; // same-tier channels 10 min apart
+      next[d.id] = toLocalInput(start + h * 3600_000 + gap);
     }
     setChannelSchedule(next);
-    toast.success(`Scheduled ${Object.keys(next).length} channels: biggest markets in 15 min, the rest over ~24h`);
+    toast.success(`Scheduled ${Object.keys(next).length} channels: biggest markets in 15 min, the rest over ~3h`);
   };
   // Post the script comment now — or, for a scheduled (still private) video, queue it: the scheduled-comments
   // cron posts it once YouTube makes the video public (you can't comment on a private video).
@@ -803,7 +805,7 @@ const UploadPage = () => {
                 setUploadProgress(`Uploading Short ${scIdx + 1}/${shortWins.length} to ${dest.name}...`);
                 const shortsTitle = `${title} #Shorts`;
                 const shortsDesc = `${description}\n\n#Shorts`;
-                const shortSched = scheduledIso(dest.id, scIdx * 24);
+                const shortSched = scheduledIso(dest.id, scIdx * 2);
                 const shortsRes = await uploadVideoToYouTube(dest.accessToken, shortsFile, {
                   title: shortsTitle, description: shortsDesc,
                   tags: [...selectedTags, "Shorts", "Short"],
@@ -1415,7 +1417,7 @@ const UploadPage = () => {
             <Clock className="w-4 h-4 text-primary mt-0.5" />
             <div>
               <div className="text-sm font-medium text-foreground">Scheduled rollout</div>
-              <div className="text-xs text-muted-foreground">Set a publish time per channel below, or press Fast rollout: Filipino / Indonesian / Portuguese in 15 min, Spanish / Thai / Vietnamese +8h, Korean / Russian +24h. Each channel's 2nd Short goes out 24h after its first. Comments post automatically when each video goes live.</div>
+              <div className="text-xs text-muted-foreground">Set a publish time per channel below, or press Fast rollout: English / Filipino / Indonesian / Portuguese in 15 min, Spanish / Thai / Vietnamese +1h, Korean / Russian +2h (2nd Korean +3h). Each channel's 2nd Short goes out 2h after its first. Comments post automatically when each video goes live.</div>
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
@@ -1489,7 +1491,7 @@ const UploadPage = () => {
                   <input type="datetime-local" value={channelSchedule[dest.id] || ''}
                     onChange={e => setChannelSchedule(prev => ({ ...prev, [dest.id]: e.target.value }))}
                     disabled={uploading}
-                    title="Publish time for this channel (empty = right away). Its 2nd Short goes out 24h later."
+                    title="Publish time for this channel (empty = right away). Its 2nd Short goes out 2h later."
                     className="text-xs border border-border rounded px-1 py-1 bg-background text-foreground w-[148px]" />
                 )}
                 {dest.platform === 'youtube' && selectedAccounts.includes(dest.id) && (

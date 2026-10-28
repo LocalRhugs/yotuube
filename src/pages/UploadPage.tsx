@@ -145,7 +145,7 @@ const UploadPage = () => {
   };
   // Biggest key markets first, the rest within ~1h (spam policy: no coordinated same-minute uploads).
   const applyFastRollout = () => {
-    const TIER: Record<string, number> = { en: 0, tl: 0, id: 0, pt: 0, es: 30, th: 30, vi: 30, ko: 60, ru: 60 }; // minutes
+    const TIER: Record<string, number> = { "": 0, en: 0, tl: 0, id: 0, pt: 0, es: 30, th: 30, vi: 30, ko: 60, ru: 60 }; // minutes
     const start = Date.now() + 15 * 60_000;
     const next: Record<string, string> = {};
     const seen: Record<number, number> = {};

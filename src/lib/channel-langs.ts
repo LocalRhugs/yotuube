@@ -66,7 +66,8 @@ const PLAN_BY_TITLE: Record<string, string> = {
   "kryos hub": "ru",       // Russian
   "obsyn hub": "pt",       // Portuguese
   "xtrin_yiihub": "pt",    // Portuguese/Brazil — aged channel (higher upload trust), given the biggest market
-  "kryos hub1": "tl",      // Filipino — aged channel; exact display title is "Kryos Hub1" (with a space)
+  "kryos hub1": "",        // English — being rebranded to TRIPLE_WICK (2026-10-28); was Filipino
+  "triple_wick": "",       // English (Kryos Hub1 after the rename)
   "cinderhex1": "ru",      // Russian — comeback channel; exact display title is "CINDERHEX1" (with a 1)
   "최고의 로블록스 스크립트": "ko", // stays Korean — it's growing (owner rule); do NOT convert to Indonesian
   "한국어 로블록스 스크립트": "ko", // was "de" — owner staying Korean on both (Korean script vids gain traction as they age)
@@ -74,15 +75,11 @@ const PLAN_BY_TITLE: Record<string, string> = {
 
 // One-time forced overrides (bump the version to re-apply to already-seeded channels).
 // Unlike the seed, these OVERWRITE an existing per-channel value, matched by title.
-const OVERRIDE_VERSION = "2026-09-18-ru2";
+const OVERRIDE_VERSION = "2026-10-28-triplewick";
 const OVERRIDE_KEY = "yt_channel_langs_override_v1";
 const FORCE_BY_TITLE: Record<string, string> = {
-  "wickedcode0": "id",         // WICKEDCODE0 = Indonesian
-  "xtrin_yiihub": "pt",        // Portuguese/Brazil
-  "kryos hub1": "tl",          // Filipino (aged channel) — exact title "Kryos Hub1"
-  "cinderhex1": "ru",          // Russian — comeback channel; exact title "CINDERHEX1"
-  "bestrobloxxscripts": "vi",  // moved off ID -> Vietnamese (WICKEDCODE0 owns ID now)
-  "최고의 로블록스 스크립트": "ko",
+  "kryos hub1": "",            // English — becoming TRIPLE_WICK (was Filipino)
+  "triple_wick": "",           // English
 };
 
 /**
